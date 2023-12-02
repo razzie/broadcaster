@@ -124,6 +124,11 @@ func (b *Broadcaster[T]) broadcast(m T) {
 		listener := listener
 		go func() {
 			defer wg.Done()
+			select { // try non-blocking first
+			case listener <- m:
+				return
+			default:
+			}
 			select {
 			case listener <- m:
 			case <-timeout:
