@@ -61,3 +61,19 @@ func TestTimeout(t *testing.T) {
 	_, ok := tryReceive(l)
 	assert.False(t, ok)
 }
+
+func TestListenerClose(t *testing.T) {
+	ch := make(chan int, 1)
+	b := NewBroadcaster(ch)
+
+	l, close, err := b.Listen()
+	assert.NoError(t, err)
+
+	ch <- 1
+	assert.Equal(t, 1, <-l)
+
+	close()
+	ch <- 2
+	_, ok := <-l
+	assert.False(t, ok)
+}
