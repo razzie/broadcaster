@@ -7,15 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func tryReceive[T any](receiver <-chan T) (m T, ok bool) {
-	select {
-	case m, ok = <-receiver:
-		return m, ok
-	default:
-		return
-	}
-}
-
 func TestBroadcast(t *testing.T) {
 	const numMessages = 5
 
@@ -58,7 +49,7 @@ func TestTimeout(t *testing.T) {
 
 	ch <- 2
 	time.Sleep(timeout * 2)
-	_, ok := tryReceive(l)
+	_, ok := <-l
 	assert.False(t, ok)
 }
 
