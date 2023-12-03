@@ -90,7 +90,6 @@ func (b *Broadcaster[T]) run() {
 			if !ok {
 				return
 			}
-			b.handlePendingListeners()
 			b.broadcast(m)
 
 		case listener := <-b.reg:
@@ -101,24 +100,6 @@ func (b *Broadcaster[T]) run() {
 				delete(b.listeners, listener)
 				close(listener)
 			}
-		}
-	}
-}
-
-func (b *Broadcaster[T]) handlePendingListeners() {
-	for {
-		select {
-		case listener := <-b.reg:
-			b.listeners[listener] = true
-
-		case listener := <-b.unreg:
-			if _, ok := b.listeners[listener]; ok {
-				delete(b.listeners, listener)
-				close(listener)
-			}
-
-		default:
-			return
 		}
 	}
 }
