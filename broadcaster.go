@@ -3,6 +3,7 @@ package broadcaster
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -10,11 +11,14 @@ var ErrBroadcasterClosed = fmt.Errorf("broadcaster is closed")
 
 type Broadcaster[T any] struct {
 	broadcasterOptions
-	input     <-chan T
-	listeners map[chan<- T]bool
-	reg       chan chan<- T
-	unreg     chan chan<- T
-	closed    chan struct{}
+	input              <-chan T
+	listeners          map[chan<- T]bool
+	reg                chan chan<- T
+	unreg              chan chan<- T
+	closed             chan struct{}
+	numListeners       atomic.Int32
+	numDroppedMessages atomic.Int32
+	numTimeouts        atomic.Int32
 }
 
 type broadcasterOptions struct {
@@ -64,11 +68,24 @@ func (b *Broadcaster[T]) IsClosed() bool {
 	}
 }
 
+func (b *Broadcaster[T]) NumListeners() int {
+	return int(b.numListeners.Load())
+}
+
+func (b *Broadcaster[T]) NumDroppedMessages() int {
+	return int(b.numDroppedMessages.Load())
+}
+
+func (b *Broadcaster[T]) NumTimeouts() int {
+	return int(b.numTimeouts.Load())
+}
+
 func (b *Broadcaster[T]) register(listener chan<- T) error {
 	select {
 	case <-b.closed:
 		return ErrBroadcasterClosed
 	case b.reg <- listener:
+		b.numListeners.Add(1)
 		return nil
 	}
 }
@@ -99,6 +116,7 @@ func (b *Broadcaster[T]) run() {
 			if _, ok := b.listeners[listener]; ok {
 				delete(b.listeners, listener)
 				close(listener)
+				b.numListeners.Add(-1)
 			}
 		}
 	}
@@ -106,6 +124,7 @@ func (b *Broadcaster[T]) run() {
 
 func (b *Broadcaster[T]) broadcast(m T) {
 	if len(b.listeners) == 0 {
+		b.numDroppedMessages.Add(1)
 		return
 	}
 
@@ -140,10 +159,13 @@ func (b *Broadcaster[T]) broadcast(m T) {
 	}
 	wg.Wait()
 	close(unreg)
+	numTimeouts := int32(len(unreg))
 	for listener := range unreg {
 		delete(b.listeners, listener)
 		close(listener)
 	}
+	b.numListeners.Add(-numTimeouts)
+	b.numTimeouts.Add(numTimeouts)
 }
 
 func (b *Broadcaster[T]) close() {
