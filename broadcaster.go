@@ -128,10 +128,18 @@ func (b *Broadcaster[T]) broadcast(m T) {
 		return
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(b.listeners))
+
 	if b.timeout < 0 {
 		for listener := range b.listeners {
-			listener <- m
+			listener := listener
+			go func() {
+				defer wg.Done()
+				listener <- m
+			}()
 		}
+		wg.Wait()
 		return
 	}
 
@@ -139,8 +147,6 @@ func (b *Broadcaster[T]) broadcast(m T) {
 	time.AfterFunc(b.timeout, func() { close(timeout) })
 
 	unreg := make(chan chan<- T, len(b.listeners))
-	var wg sync.WaitGroup
-	wg.Add(len(b.listeners))
 	for listener := range b.listeners {
 		listener := listener
 		go func() {
