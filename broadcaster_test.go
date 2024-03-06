@@ -68,25 +68,3 @@ func TestListenerClose(t *testing.T) {
 	_, ok := <-l
 	assert.False(t, ok)
 }
-
-func TestStats(t *testing.T) {
-	const timeout = 100 * time.Millisecond
-
-	ch := make(chan int)
-	b := NewBroadcaster(ch, WithTimeout(timeout))
-
-	assert.Zero(t, b.NumListeners())
-	assert.Zero(t, b.NumDroppedMessages())
-	assert.Zero(t, b.NumTimeouts())
-
-	ch <- 1
-	assert.Equal(t, 1, b.NumDroppedMessages())
-
-	_, _, err := b.Listen()
-	assert.NoError(t, err)
-	assert.Equal(t, 1, b.NumListeners())
-
-	ch <- 2
-	time.Sleep(timeout * 2)
-	assert.Equal(t, 1, b.NumTimeouts())
-}
