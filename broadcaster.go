@@ -7,14 +7,7 @@ import (
 	"time"
 )
 
-var (
-	ErrBroadcasterClosed = fmt.Errorf("broadcaster is closed")
-
-	defaultOptions = broadcasterOptions{
-		logger:  slog.Default(),
-		timeout: -1,
-	}
-)
+var ErrBroadcasterClosed = fmt.Errorf("broadcaster is closed")
 
 type Broadcaster[In, Out any] struct {
 	broadcasterOptions
@@ -26,22 +19,9 @@ type Broadcaster[In, Out any] struct {
 	closed    chan struct{}
 }
 
-type broadcasterOptions struct {
-	logger  *slog.Logger
-	timeout time.Duration
-}
-
-type BroadcasterOption func(*broadcasterOptions)
-
-func WithTimeout(timeout time.Duration) BroadcasterOption {
-	return func(bo *broadcasterOptions) {
-		bo.timeout = timeout
-	}
-}
-
-func NewBroadcaster[T any](input <-chan T, options ...BroadcasterOption) *Broadcaster[T, T] {
+func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) *Broadcaster[T, T] {
 	b := &Broadcaster[T, T]{
-		broadcasterOptions: defaultOptions,
+		broadcasterOptions: defaultBroadcasterOptions,
 		input:              input,
 		transform:          func(t T) (T, error) { return t, nil },
 		listeners:          make(map[chan<- T]bool),
@@ -49,19 +29,33 @@ func NewBroadcaster[T any](input <-chan T, options ...BroadcasterOption) *Broadc
 		unreg:              make(chan chan<- T),
 		closed:             make(chan struct{}),
 	}
-	for _, opt := range options {
+	for _, opt := range opts {
 		opt(&b.broadcasterOptions)
 	}
 	go b.run()
 	return b
 }
 
-func (b *Broadcaster[In, Out]) Listen() (ch <-chan Out, closer func(), err error) {
-	listener := make(chan Out)
+func (b *Broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, closer func(), err error) {
+	var lOpts listenerOptions
+	for _, opt := range opts {
+		opt(&lOpts)
+	}
+
+	listener := make(chan Out, lOpts.bufferSize)
 	if err := b.register(listener); err != nil {
 		return nil, nil, err
 	}
-	return listener, func() { b.unregister(listener) }, nil
+
+	closer = sync.OnceFunc(func() { b.unregister(listener) })
+	if lOpts.ctx != nil {
+		go func() {
+			<-lOpts.ctx.Done()
+			closer()
+		}()
+	}
+
+	return listener, closer, nil
 }
 
 func (b *Broadcaster[In, Out]) IsClosed() bool {
