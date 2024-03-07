@@ -2,22 +2,32 @@ package broadcaster
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 )
 
-var ErrBroadcasterClosed = fmt.Errorf("broadcaster is closed")
+var (
+	ErrBroadcasterClosed = fmt.Errorf("broadcaster is closed")
 
-type Broadcaster[T any] struct {
+	defaultOptions = broadcasterOptions{
+		logger:  slog.Default(),
+		timeout: -1,
+	}
+)
+
+type Broadcaster[In, Out any] struct {
 	broadcasterOptions
-	input     <-chan T
-	listeners map[chan<- T]bool
-	reg       chan chan<- T
-	unreg     chan chan<- T
+	input     <-chan In
+	transform func(In) (Out, error)
+	listeners map[chan<- Out]bool
+	reg       chan chan<- Out
+	unreg     chan chan<- Out
 	closed    chan struct{}
 }
 
 type broadcasterOptions struct {
+	logger  *slog.Logger
 	timeout time.Duration
 }
 
@@ -29,16 +39,15 @@ func WithTimeout(timeout time.Duration) BroadcasterOption {
 	}
 }
 
-func NewBroadcaster[T any](input <-chan T, options ...BroadcasterOption) *Broadcaster[T] {
-	b := &Broadcaster[T]{
-		broadcasterOptions: broadcasterOptions{
-			timeout: -1,
-		},
-		input:     input,
-		listeners: make(map[chan<- T]bool),
-		reg:       make(chan chan<- T),
-		unreg:     make(chan chan<- T),
-		closed:    make(chan struct{}),
+func NewBroadcaster[T any](input <-chan T, options ...BroadcasterOption) *Broadcaster[T, T] {
+	b := &Broadcaster[T, T]{
+		broadcasterOptions: defaultOptions,
+		input:              input,
+		transform:          func(t T) (T, error) { return t, nil },
+		listeners:          make(map[chan<- T]bool),
+		reg:                make(chan chan<- T),
+		unreg:              make(chan chan<- T),
+		closed:             make(chan struct{}),
 	}
 	for _, opt := range options {
 		opt(&b.broadcasterOptions)
@@ -47,15 +56,15 @@ func NewBroadcaster[T any](input <-chan T, options ...BroadcasterOption) *Broadc
 	return b
 }
 
-func (b *Broadcaster[T]) Listen() (ch <-chan T, closer func(), err error) {
-	listener := make(chan T)
+func (b *Broadcaster[In, Out]) Listen() (ch <-chan Out, closer func(), err error) {
+	listener := make(chan Out)
 	if err := b.register(listener); err != nil {
 		return nil, nil, err
 	}
 	return listener, func() { b.unregister(listener) }, nil
 }
 
-func (b *Broadcaster[T]) IsClosed() bool {
+func (b *Broadcaster[In, Out]) IsClosed() bool {
 	select {
 	case <-b.closed:
 		return true
@@ -64,7 +73,7 @@ func (b *Broadcaster[T]) IsClosed() bool {
 	}
 }
 
-func (b *Broadcaster[T]) register(listener chan<- T) error {
+func (b *Broadcaster[In, Out]) register(listener chan<- Out) error {
 	select {
 	case <-b.closed:
 		return ErrBroadcasterClosed
@@ -73,7 +82,7 @@ func (b *Broadcaster[T]) register(listener chan<- T) error {
 	}
 }
 
-func (b *Broadcaster[T]) unregister(listener chan<- T) error {
+func (b *Broadcaster[In, Out]) unregister(listener chan<- Out) error {
 	select {
 	case <-b.closed:
 		return ErrBroadcasterClosed
@@ -82,7 +91,7 @@ func (b *Broadcaster[T]) unregister(listener chan<- T) error {
 	}
 }
 
-func (b *Broadcaster[T]) run() {
+func (b *Broadcaster[In, Out]) run() {
 	defer b.close()
 	for {
 		select {
@@ -104,8 +113,14 @@ func (b *Broadcaster[T]) run() {
 	}
 }
 
-func (b *Broadcaster[T]) broadcast(m T) {
+func (b *Broadcaster[In, Out]) broadcast(in In) {
 	if len(b.listeners) == 0 {
+		return
+	}
+
+	out, err := b.transform(in)
+	if err != nil {
+		b.logger.Error("transform failed", slog.Any("msg", in), slog.Any("err", err))
 		return
 	}
 
@@ -117,7 +132,7 @@ func (b *Broadcaster[T]) broadcast(m T) {
 			listener := listener
 			go func() {
 				defer wg.Done()
-				listener <- m
+				listener <- out
 			}()
 		}
 		wg.Wait()
@@ -127,18 +142,18 @@ func (b *Broadcaster[T]) broadcast(m T) {
 	timeout := make(chan struct{})
 	time.AfterFunc(b.timeout, func() { close(timeout) })
 
-	unreg := make(chan chan<- T, len(b.listeners))
+	unreg := make(chan chan<- Out, len(b.listeners))
 	for listener := range b.listeners {
 		listener := listener
 		go func() {
 			defer wg.Done()
 			select { // try non-blocking first
-			case listener <- m:
+			case listener <- out:
 				return
 			default:
 			}
 			select {
-			case listener <- m:
+			case listener <- out:
 			case <-timeout:
 				unreg <- listener
 			}
@@ -152,7 +167,7 @@ func (b *Broadcaster[T]) broadcast(m T) {
 	}
 }
 
-func (b *Broadcaster[T]) close() {
+func (b *Broadcaster[In, Out]) close() {
 	close(b.closed)
 	for listener := range b.listeners {
 		close(listener)
