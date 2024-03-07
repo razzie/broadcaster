@@ -14,8 +14,9 @@ var (
 )
 
 type broadcasterOptions struct {
-	logger  *slog.Logger
-	timeout time.Duration
+	logger   *slog.Logger
+	timeout  time.Duration
+	blocking bool
 }
 
 type BroadcasterOption func(*broadcasterOptions)
@@ -24,6 +25,14 @@ func WithTimeout(timeout time.Duration) BroadcasterOption {
 	return func(bo *broadcasterOptions) {
 		bo.timeout = timeout
 	}
+}
+
+func Blocking(bo *broadcasterOptions) {
+	bo.blocking = true
+}
+
+func NonBlocking(bo *broadcasterOptions) {
+	bo.blocking = false
 }
 
 type listenerOptions struct {

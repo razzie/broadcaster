@@ -93,6 +93,10 @@ func (b *Broadcaster[In, Out]) run() {
 			if !ok {
 				return
 			}
+			if b.blocking && len(b.listeners) == 0 {
+				listener := <-b.reg
+				b.listeners[listener] = true
+			}
 			b.broadcast(m)
 
 		case listener := <-b.reg:
