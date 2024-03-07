@@ -161,6 +161,9 @@ func (b *Broadcaster[In, Out]) broadcast(in In) {
 	}
 	wg.Wait()
 	close(unreg)
+	if num_listeners := len(unreg); num_listeners > 0 {
+		b.logger.Info("listener timeout", slog.Int("num_listeners", num_listeners))
+	}
 	for listener := range unreg {
 		delete(b.listeners, listener)
 		close(listener)
