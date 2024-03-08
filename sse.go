@@ -6,19 +6,10 @@ import (
 )
 
 func NewSSEBroadcaster[T any](input <-chan T, event string, opts ...BroadcasterOption) http.Handler {
-	b := &Broadcaster[T, []byte]{
-		broadcasterOptions: defaultBroadcasterOptions,
-		input:              input,
-		transform:          func(t T) ([]byte, error) { return json.Marshal(t) },
-		listeners:          make(map[chan<- []byte]bool),
-		reg:                make(chan chan<- []byte),
-		unreg:              make(chan chan<- []byte),
-		closed:             make(chan struct{}),
+	convert := func(t T) ([]byte, error) {
+		return json.Marshal(t)
 	}
-	for _, opt := range opts {
-		opt(&b.broadcasterOptions)
-	}
-	go b.run()
+	b := NewConverterBroadcaster(input, convert, opts...)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		l, _, err := b.Listen(WithContext(r.Context()))

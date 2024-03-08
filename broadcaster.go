@@ -12,7 +12,7 @@ var ErrBroadcasterClosed = fmt.Errorf("broadcaster is closed")
 type Broadcaster[In, Out any] struct {
 	broadcasterOptions
 	input     <-chan In
-	transform func(In) (Out, error)
+	convert   func(In) (Out, error)
 	listeners map[chan<- Out]bool
 	reg       chan chan<- Out
 	unreg     chan chan<- Out
@@ -20,13 +20,20 @@ type Broadcaster[In, Out any] struct {
 }
 
 func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) *Broadcaster[T, T] {
-	b := &Broadcaster[T, T]{
+	convert := func(t T) (T, error) {
+		return t, nil
+	}
+	return NewConverterBroadcaster(input, convert, opts...)
+}
+
+func NewConverterBroadcaster[In, Out any](input <-chan In, convert func(In) (Out, error), opts ...BroadcasterOption) *Broadcaster[In, Out] {
+	b := &Broadcaster[In, Out]{
 		broadcasterOptions: defaultBroadcasterOptions,
 		input:              input,
-		transform:          func(t T) (T, error) { return t, nil },
-		listeners:          make(map[chan<- T]bool),
-		reg:                make(chan chan<- T),
-		unreg:              make(chan chan<- T),
+		convert:            convert,
+		listeners:          make(map[chan<- Out]bool),
+		reg:                make(chan chan<- Out),
+		unreg:              make(chan chan<- Out),
 		closed:             make(chan struct{}),
 	}
 	for _, opt := range opts {
@@ -116,9 +123,9 @@ func (b *Broadcaster[In, Out]) broadcast(in In) {
 		return
 	}
 
-	out, err := b.transform(in)
+	out, err := b.convert(in)
 	if err != nil {
-		b.logger.Error("transform failed", slog.Any("msg", in), slog.Any("err", err))
+		b.logger.Error("conversion failed", slog.Any("msg", in), slog.Any("err", err))
 		return
 	}
 
