@@ -44,20 +44,22 @@ func NewConverterBroadcaster[In, Out any](input <-chan In, convert func(In) (Out
 }
 
 func (b *Broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, closer func(), err error) {
-	var lOpts listenerOptions
+	lisOpts := listenerOptions{
+		bufSize: b.lisBufSize,
+	}
 	for _, opt := range opts {
-		opt(&lOpts)
+		opt(&lisOpts)
 	}
 
-	listener := make(chan Out, lOpts.bufferSize)
+	listener := make(chan Out, lisOpts.bufSize)
 	if err := b.register(listener); err != nil {
 		return nil, nil, err
 	}
 
 	closer = sync.OnceFunc(func() { b.unregister(listener) })
-	if lOpts.ctx != nil {
+	if lisOpts.ctx != nil {
 		go func() {
-			<-lOpts.ctx.Done()
+			<-lisOpts.ctx.Done()
 			closer()
 		}()
 	}

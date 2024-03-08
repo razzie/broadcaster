@@ -14,9 +14,10 @@ var (
 )
 
 type broadcasterOptions struct {
-	logger   *slog.Logger
-	timeout  time.Duration
-	blocking bool
+	logger     *slog.Logger
+	timeout    time.Duration
+	lisBufSize int
+	blocking   bool
 }
 
 type BroadcasterOption func(*broadcasterOptions)
@@ -24,6 +25,12 @@ type BroadcasterOption func(*broadcasterOptions)
 func WithTimeout(timeout time.Duration) BroadcasterOption {
 	return func(bo *broadcasterOptions) {
 		bo.timeout = timeout
+	}
+}
+
+func WithListenerBufferSize(bufSize int) BroadcasterOption {
+	return func(bo *broadcasterOptions) {
+		bo.lisBufSize = bufSize
 	}
 }
 
@@ -36,15 +43,15 @@ func NonBlocking(bo *broadcasterOptions) {
 }
 
 type listenerOptions struct {
-	bufferSize int
-	ctx        context.Context
+	bufSize int
+	ctx     context.Context
 }
 
 type ListenerOption func(*listenerOptions)
 
-func WithBufferSize(bufferSize int) ListenerOption {
+func WithBufferSize(bufSize int) ListenerOption {
 	return func(lo *listenerOptions) {
-		lo.bufferSize = bufferSize
+		lo.bufSize = bufSize
 	}
 }
 
