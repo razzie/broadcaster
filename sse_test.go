@@ -12,8 +12,6 @@ import (
 )
 
 func TestSSEBroadcast(t *testing.T) {
-	const numMessages = 3
-
 	ch := make(chan int)
 	b := NewSSEBroadcaster(ch, "")
 
@@ -25,13 +23,36 @@ func TestSSEBroadcast(t *testing.T) {
 
 	time.Sleep(time.Millisecond)
 
-	for i := 1; i <= numMessages; i++ {
-		ch <- i
-	}
+	ch <- 1
+	ch <- 2
+	ch <- 3
 	close(ch)
 	wg.Wait()
 
 	expected := "data: 1\n\ndata: 2\n\ndata: 3\n\n"
+	assert.Equal(t, expected, string(res1))
+	assert.Equal(t, expected, string(res2))
+}
+
+func TestSSEBroadcastWithEventName(t *testing.T) {
+	ch := make(chan int)
+	b := NewSSEBroadcaster(ch, "a")
+
+	var res1, res2 []byte
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go runRequest(b, &res1, &wg)
+	go runRequest(b, &res2, &wg)
+
+	time.Sleep(time.Millisecond)
+
+	ch <- 1
+	ch <- 2
+	ch <- 3
+	close(ch)
+	wg.Wait()
+
+	expected := "event: a\ndata: 1\n\nevent: a\ndata: 2\n\nevent: a\ndata: 3\n\n"
 	assert.Equal(t, expected, string(res1))
 	assert.Equal(t, expected, string(res2))
 }
