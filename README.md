@@ -29,10 +29,10 @@ func NewSSEBroadcaster[T any](input <-chan T, event string, opts ...BroadcasterO
 
 ### Broadcaster options
 ```go
+WithLogger(logger *slog.Logger)
 WithTimeout(timeout time.Duration)
 WithListenerBufferSize(bufSize int)
-Blocking
-NonBlocking
+WithBlocking(blocking bool)
 ```
 
 ### Listener options
