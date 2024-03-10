@@ -14,9 +14,14 @@ type Broadcaster[In, Out any] struct {
 	input     <-chan In
 	convert   func(In) (Out, error)
 	listeners map[chan<- Out]bool
-	reg       chan chan<- Out
-	unreg     chan chan<- Out
+	reg       chan listenerRequest[Out]
+	unreg     chan listenerRequest[Out]
 	closed    chan struct{}
+}
+
+type listenerRequest[T any] struct {
+	channel chan<- T
+	done    chan struct{}
 }
 
 func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) *Broadcaster[T, T] {
@@ -32,8 +37,8 @@ func NewConverterBroadcaster[In, Out any](input <-chan In, convert func(In) (Out
 		input:              input,
 		convert:            convert,
 		listeners:          make(map[chan<- Out]bool),
-		reg:                make(chan chan<- Out),
-		unreg:              make(chan chan<- Out),
+		reg:                make(chan listenerRequest[Out]),
+		unreg:              make(chan listenerRequest[Out]),
 		closed:             make(chan struct{}),
 	}
 	for _, opt := range opts {
@@ -77,19 +82,29 @@ func (b *Broadcaster[In, Out]) IsClosed() bool {
 }
 
 func (b *Broadcaster[In, Out]) register(listener chan<- Out) error {
+	req := listenerRequest[Out]{channel: listener, done: make(chan struct{})}
 	select {
 	case <-b.closed:
 		return ErrBroadcasterClosed
-	case b.reg <- listener:
+	case b.reg <- req:
+		select {
+		case <-req.done:
+		case <-b.closed:
+		}
 		return nil
 	}
 }
 
 func (b *Broadcaster[In, Out]) unregister(listener chan<- Out) error {
+	req := listenerRequest[Out]{channel: listener, done: make(chan struct{})}
 	select {
 	case <-b.closed:
 		return ErrBroadcasterClosed
-	case b.unreg <- listener:
+	case b.unreg <- req:
+		select {
+		case <-req.done:
+		case <-b.closed:
+		}
 		return nil
 	}
 }
@@ -103,19 +118,22 @@ func (b *Broadcaster[In, Out]) run() {
 				return
 			}
 			if b.blocking && len(b.listeners) == 0 {
-				listener := <-b.reg
-				b.listeners[listener] = true
+				req := <-b.reg
+				b.listeners[req.channel] = true
+				close(req.done)
 			}
 			b.broadcast(m)
 
-		case listener := <-b.reg:
-			b.listeners[listener] = true
+		case req := <-b.reg:
+			b.listeners[req.channel] = true
+			close(req.done)
 
-		case listener := <-b.unreg:
-			if _, ok := b.listeners[listener]; ok {
-				delete(b.listeners, listener)
-				close(listener)
+		case req := <-b.unreg:
+			if _, ok := b.listeners[req.channel]; ok {
+				delete(b.listeners, req.channel)
+				close(req.channel)
 			}
+			close(req.done)
 		}
 	}
 }
