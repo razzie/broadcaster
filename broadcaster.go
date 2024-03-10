@@ -9,7 +9,12 @@ import (
 
 var ErrBroadcasterClosed = fmt.Errorf("broadcaster is closed")
 
-type Broadcaster[In, Out any] struct {
+type Broadcaster[T any] interface {
+	Listen(opts ...ListenerOption) (ch <-chan T, closer func(), err error)
+	IsClosed() bool
+}
+
+type broadcaster[In, Out any] struct {
 	broadcasterOptions
 	input     <-chan In
 	convert   func(In) (Out, error)
@@ -24,15 +29,15 @@ type listenerRequest[T any] struct {
 	done    chan struct{}
 }
 
-func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) *Broadcaster[T, T] {
+func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) Broadcaster[T] {
 	convert := func(t T) (T, error) {
 		return t, nil
 	}
 	return NewConverterBroadcaster(input, convert, opts...)
 }
 
-func NewConverterBroadcaster[In, Out any](input <-chan In, convert func(In) (Out, error), opts ...BroadcasterOption) *Broadcaster[In, Out] {
-	b := &Broadcaster[In, Out]{
+func NewConverterBroadcaster[In, Out any](input <-chan In, convert func(In) (Out, error), opts ...BroadcasterOption) Broadcaster[Out] {
+	b := &broadcaster[In, Out]{
 		broadcasterOptions: defaultBroadcasterOptions,
 		input:              input,
 		convert:            convert,
@@ -48,7 +53,7 @@ func NewConverterBroadcaster[In, Out any](input <-chan In, convert func(In) (Out
 	return b
 }
 
-func (b *Broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, closer func(), err error) {
+func (b *broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, closer func(), err error) {
 	lisOpts := listenerOptions{
 		bufSize: b.lisBufSize,
 	}
@@ -72,7 +77,7 @@ func (b *Broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, cl
 	return listener, closer, nil
 }
 
-func (b *Broadcaster[In, Out]) IsClosed() bool {
+func (b *broadcaster[In, Out]) IsClosed() bool {
 	select {
 	case <-b.closed:
 		return true
@@ -81,7 +86,7 @@ func (b *Broadcaster[In, Out]) IsClosed() bool {
 	}
 }
 
-func (b *Broadcaster[In, Out]) register(listener chan<- Out) error {
+func (b *broadcaster[In, Out]) register(listener chan<- Out) error {
 	req := listenerRequest[Out]{channel: listener, done: make(chan struct{})}
 	select {
 	case <-b.closed:
@@ -95,7 +100,7 @@ func (b *Broadcaster[In, Out]) register(listener chan<- Out) error {
 	}
 }
 
-func (b *Broadcaster[In, Out]) unregister(listener chan<- Out) error {
+func (b *broadcaster[In, Out]) unregister(listener chan<- Out) error {
 	req := listenerRequest[Out]{channel: listener, done: make(chan struct{})}
 	select {
 	case <-b.closed:
@@ -109,7 +114,7 @@ func (b *Broadcaster[In, Out]) unregister(listener chan<- Out) error {
 	}
 }
 
-func (b *Broadcaster[In, Out]) run() {
+func (b *broadcaster[In, Out]) run() {
 	defer b.close()
 	for {
 		select {
@@ -138,7 +143,7 @@ func (b *Broadcaster[In, Out]) run() {
 	}
 }
 
-func (b *Broadcaster[In, Out]) broadcast(in In) {
+func (b *broadcaster[In, Out]) broadcast(in In) {
 	if len(b.listeners) == 0 {
 		return
 	}
@@ -195,7 +200,7 @@ func (b *Broadcaster[In, Out]) broadcast(in In) {
 	}
 }
 
-func (b *Broadcaster[In, Out]) close() {
+func (b *broadcaster[In, Out]) close() {
 	close(b.closed)
 	for listener := range b.listeners {
 		close(listener)
