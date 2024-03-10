@@ -92,10 +92,7 @@ func (b *broadcaster[In, Out]) register(listener chan<- Out) error {
 	case <-b.closed:
 		return ErrBroadcasterClosed
 	case b.reg <- req:
-		select {
-		case <-req.done:
-		case <-b.closed:
-		}
+		<-req.done
 		return nil
 	}
 }
@@ -106,10 +103,7 @@ func (b *broadcaster[In, Out]) unregister(listener chan<- Out) error {
 	case <-b.closed:
 		return ErrBroadcasterClosed
 	case b.unreg <- req:
-		select {
-		case <-req.done:
-		case <-b.closed:
-		}
+		<-req.done
 		return nil
 	}
 }
