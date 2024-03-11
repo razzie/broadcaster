@@ -164,7 +164,11 @@ func (b *broadcaster[In, Out]) broadcast(in In) {
 	}
 
 	timeout := make(chan struct{})
-	time.AfterFunc(b.timeout, func() { close(timeout) })
+	if b.timeout == 0 {
+		close(timeout)
+	} else {
+		time.AfterFunc(b.timeout, func() { close(timeout) })
+	}
 
 	unreg := make(chan chan<- Out, len(b.listeners))
 	for listener := range b.listeners {
