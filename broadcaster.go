@@ -110,16 +110,18 @@ func (b *broadcaster[In, Out]) unregister(listener chan<- Out) error {
 
 func (b *broadcaster[In, Out]) run() {
 	defer b.close()
+
 	for {
+		if b.blocking && len(b.listeners) == 0 {
+			req := <-b.reg
+			b.listeners[req.channel] = true
+			close(req.done)
+		}
+
 		select {
 		case m, ok := <-b.input:
 			if !ok {
 				return
-			}
-			if b.blocking && len(b.listeners) == 0 {
-				req := <-b.reg
-				b.listeners[req.channel] = true
-				close(req.done)
 			}
 			b.broadcast(m)
 
