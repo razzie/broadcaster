@@ -53,7 +53,7 @@ func NewConverterBroadcaster[In, Out any](input <-chan In, convert func(In) (Out
 	return b
 }
 
-func (b *broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, closer func(), err error) {
+func (b *broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, cancel func(), err error) {
 	lisOpts := listenerOptions{
 		bufSize: b.lisBufSize,
 	}
@@ -66,15 +66,15 @@ func (b *broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, cl
 		return nil, nil, err
 	}
 
-	closer = sync.OnceFunc(func() { b.unregister(listener) })
+	cancel = sync.OnceFunc(func() { b.unregister(listener) })
 	if lisOpts.ctx != nil {
 		go func() {
 			<-lisOpts.ctx.Done()
-			closer()
+			cancel()
 		}()
 	}
 
-	return listener, closer, nil
+	return listener, cancel, nil
 }
 
 func (b *broadcaster[In, Out]) IsClosed() bool {

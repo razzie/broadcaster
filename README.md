@@ -16,7 +16,7 @@ As an extra feature, the library supports the creation of a http.Handler that br
 ### Broadcaster interface
 ```go
 type Broadcaster[T any] interface {
-	Listen(opts ...ListenerOption) (ch <-chan T, closer func(), err error)
+	Listen(opts ...ListenerOption) (ch <-chan T, cancel func(), err error)
 	IsClosed() bool
 }
 ```
