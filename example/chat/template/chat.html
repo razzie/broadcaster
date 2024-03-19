@@ -1,0 +1,14 @@
+{{define "chat"}}
+<style>
+	td:first-child { width: 20% ;}
+</style>
+<table hx-ext="sse" sse-connect="/ssechat" sse-swap="message" hx-swap="beforeend">
+</table>
+<form hx-post="/chat" hx-swap="none" hx-on::after-request="this.reset()">
+	<fieldset role="group">
+		<input name="name" type="hidden" value="{{.name}}">
+		<input name="message" type="text" autofocus>
+		<input type="submit" value="Send">
+	</fieldset>
+</form>
+{{end}}
