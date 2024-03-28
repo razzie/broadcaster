@@ -1,1 +1,6 @@
-{{define "message"}}<tr><td><strong>{{if .Name}}{{.Name}}{{else}}anonymous{{end}}</strong></td><td>{{.Text}}</td></tr>{{end}}
+{{define "message"}}
+<tr>
+    <td><strong>{{if .Name}}{{.Name}}{{else}}anonymous{{end}}</strong></td>
+    <td>{{.Text}}</td>
+</tr>
+{{end}}

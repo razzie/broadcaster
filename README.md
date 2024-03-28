@@ -1,7 +1,7 @@
 # github.com/razzie/broadcaster
 
 ## Summary
-The scope of this library is to take an input Go channel (producer) and multiplex/broadcast the objects sent over it to an arbitrary amount of listeners (consumers).
+The scope of this library is to take an input Go channel (producer) and broadcast the objects sent over it to an arbitrary amount of listeners (consumers).
 
 Listeners are channels of the same type as the input channel. They can be opened and closed at any time and these operations block until the listener is opened/closed.
 
@@ -10,21 +10,17 @@ An incoming object from the input channel is always sent to all current listener
 Closing the input channel closes all listeners and subsequent calls to ``Listen()`` return ``ErrBroadcasterClosed`` error.
 
 ### Server Sent Events
-As an extra feature, the library supports the creation of a http.Handler that broadcasts incoming objects from an input channel.
+As an extra feature, the library supports the creation of a http.Handler that broadcasts incoming objects from one or more input channels (event sources).
 
 ## API reference
-### Broadcaster interface
+### Broadcaster interface + instantiation
 ```go
 type Broadcaster[T any] interface {
 	Listen(opts ...ListenerOption) (ch <-chan T, cancel func(), err error)
 	IsClosed() bool
 }
-```
 
-### Creating new broadcaster (and SSE broadcaster)
-```go
 func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) Broadcaster[T]
-func NewSSEBroadcaster[T any](input <-chan T, event string, opts ...BroadcasterOption) http.Handler
 ```
 
 ### Broadcaster options
@@ -40,3 +36,16 @@ WithBlocking(blocking bool)
 WithBufferSize(bufSize int)
 WithContext(ctx context.Context)
 ```
+
+### Server Sent Events
+```go
+func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) EventSource
+
+func BundleEventSources(srcs ...EventSource) EventSource
+
+func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler
+```
+
+`Marshaler` type is compatible with `json.Marshal` (which is used by default in case `marshaler` is left `nil`).
+
+`eventName` can be an empty string.

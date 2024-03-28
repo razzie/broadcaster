@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"html/template"
 	"net/http"
 
@@ -14,9 +15,15 @@ type Message struct {
 	Text string
 }
 
+func marshalMessage(msg any) ([]byte, error) {
+	var buf bytes.Buffer
+	t.ExecuteTemplate(&buf, "message", msg)
+	return buf.Bytes(), nil
+}
+
 func main() {
 	messages := make(chan Message, 64)
-	b := broadcaster.NewBroadcaster(messages)
+	messageEvents := broadcaster.NewEventSource(messages, "", marshalMessage)
 
 	var r http.ServeMux
 	r.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
@@ -36,24 +43,7 @@ func main() {
 		}
 		messages <- Message{Name: name, Text: message}
 	})
-	r.HandleFunc("GET /ssechat", func(w http.ResponseWriter, r *http.Request) {
-		l, _, err := b.Listen(broadcaster.WithContext(r.Context()))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Add("Cache-Control", "no-store")
-		w.Header().Add("Content-Type", "text/event-stream")
-		w.WriteHeader(http.StatusOK)
-		for m := range l {
-			w.Write([]byte("data: "))
-			t.ExecuteTemplate(w, "message", m)
-			w.Write([]byte("\n\n"))
-			if flusher, ok := w.(http.Flusher); ok {
-				flusher.Flush()
-			}
-		}
-	})
+	r.Handle("GET /ssechat", broadcaster.NewSSEBroadcaster(messageEvents))
 
 	http.ListenAndServe(":8080", &r)
 }
