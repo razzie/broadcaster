@@ -1,4 +1,4 @@
-package broadcaster
+package broadcaster_test
 
 import (
 	"io"
@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	. "github.com/razzie/broadcaster"
 
 	"github.com/stretchr/testify/assert"
 )
