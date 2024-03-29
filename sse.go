@@ -1,8 +1,10 @@
 package broadcaster
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strings"
 	"sync"
@@ -36,6 +38,10 @@ func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler
 
 func NewTextEventSource(input <-chan string, eventName string) EventSource {
 	return NewEventSource(input, eventName, marshalText)
+}
+
+func NewTemplateEventSource[T any](input <-chan T, eventName string, t *template.Template, templateName string) EventSource {
+	return NewEventSource(input, eventName, marshalTemplate(t, templateName))
 }
 
 func BundleEventSources(srcs ...EventSource) EventSource {
@@ -99,4 +105,23 @@ func marshalEvent(e event) (string, error) {
 
 func marshalText(text any) ([]byte, error) {
 	return []byte(text.(string)), nil
+}
+
+func marshalTemplate(t *template.Template, name string) func(any) ([]byte, error) {
+	if len(name) == 0 {
+		return func(val any) ([]byte, error) {
+			var buf bytes.Buffer
+			if err := t.Execute(&buf, val); err != nil {
+				return nil, err
+			}
+			return buf.Bytes(), nil
+		}
+	}
+	return func(val any) ([]byte, error) {
+		var buf bytes.Buffer
+		if err := t.ExecuteTemplate(&buf, name, val); err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	}
 }

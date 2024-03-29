@@ -41,6 +41,7 @@ WithContext(ctx context.Context)
 ```go
 func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) EventSource
 func NewTextEventSource(input <-chan string, eventName string) EventSource
+func NewTemplateEventSource[T any](input <-chan T, eventName string, t *template.Template, templateName string) EventSource
 func BundleEventSources(srcs ...EventSource) EventSource
 ```
 `Marshaler` type is compatible with `json.Marshal` (which is used by default in case `marshaler` is left `nil`).

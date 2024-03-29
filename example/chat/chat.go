@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"html/template"
 	"net/http"
 
@@ -15,15 +14,9 @@ type Message struct {
 	Text string
 }
 
-func marshalMessage(msg any) ([]byte, error) {
-	var buf bytes.Buffer
-	t.ExecuteTemplate(&buf, "message", msg)
-	return buf.Bytes(), nil
-}
-
 func main() {
 	messages := make(chan Message, 64)
-	messageEvents := broadcaster.NewEventSource(messages, "", marshalMessage)
+	messageEvents := broadcaster.NewTemplateEventSource(messages, "", t, "message")
 
 	var r http.ServeMux
 	r.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
