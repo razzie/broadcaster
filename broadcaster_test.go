@@ -119,3 +119,25 @@ func TestListenerContext(t *testing.T) {
 	_, ok = <-l
 	assert.False(t, ok)
 }
+
+func TestBroadcasterClose(t *testing.T) {
+	ch := make(chan int)
+	b := NewBroadcaster(ch)
+
+	select {
+	case <-b.Done():
+		t.Fatal("broadcaster should not be closed")
+	default:
+	}
+	assert.False(t, b.IsClosed())
+
+	close(ch)
+	time.Sleep(time.Millisecond)
+
+	select {
+	case <-b.Done():
+	default:
+		t.Fatal("broadcaster should be closed")
+	}
+	assert.True(t, b.IsClosed())
+}
