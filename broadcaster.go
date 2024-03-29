@@ -12,6 +12,7 @@ var ErrBroadcasterClosed = fmt.Errorf("broadcaster is closed")
 type Broadcaster[T any] interface {
 	Listen(opts ...ListenerOption) (ch <-chan T, closer func(), err error)
 	IsClosed() bool
+	Done() <-chan struct{}
 }
 
 type broadcaster[In, Out any] struct {
@@ -84,6 +85,10 @@ func (b *broadcaster[In, Out]) IsClosed() bool {
 	default:
 		return false
 	}
+}
+
+func (b *broadcaster[In, Out]) Done() <-chan struct{} {
+	return b.closed
 }
 
 func (b *broadcaster[In, Out]) register(listener chan<- Out) error {

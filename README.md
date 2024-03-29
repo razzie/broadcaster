@@ -18,6 +18,7 @@ As an extra feature, the library supports the creation of a http.Handler that br
 type Broadcaster[T any] interface {
 	Listen(opts ...ListenerOption) (ch <-chan T, cancel func(), err error)
 	IsClosed() bool
+	Done() <-chan struct{}
 }
 
 func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) Broadcaster[T]
