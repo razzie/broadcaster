@@ -2,7 +2,7 @@
 <style>
 	td:first-child { width: 20% ;}
 </style>
-<table hx-ext="sse" sse-connect="/ssechat" sse-swap="message" hx-swap="beforeend">
+<table hx-ext="sse" sse-connect="/ssechat" sse-swap="message_event" hx-swap="beforeend">
 </table>
 <form hx-post="/chat" hx-swap="none" hx-on::after-request="this.reset()">
 	<fieldset role="group">

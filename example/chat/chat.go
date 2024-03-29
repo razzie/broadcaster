@@ -16,7 +16,7 @@ type Message struct {
 
 func main() {
 	messages := make(chan Message, 64)
-	messageEvents := broadcaster.NewTemplateEventSource(messages, "", t, "message")
+	messageEvents := broadcaster.NewTemplateEventSource(messages, "message_event", t, "message")
 
 	var r http.ServeMux
 	r.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
