@@ -40,12 +40,12 @@ WithContext(ctx context.Context)
 ### Server Sent Events
 ```go
 func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) EventSource
-
+func NewTextEventSource(input <-chan string, eventName string) EventSource
 func BundleEventSources(srcs ...EventSource) EventSource
+```
+`Marshaler` type is compatible with `json.Marshal` (which is used by default in case `marshaler` is left `nil`).
+`eventName` can be an empty string.
 
+```go
 func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler
 ```
-
-`Marshaler` type is compatible with `json.Marshal` (which is used by default in case `marshaler` is left `nil`).
-
-`eventName` can be an empty string.

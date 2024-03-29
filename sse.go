@@ -34,6 +34,10 @@ func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler
 	}
 }
 
+func NewTextEventSource(input <-chan string, eventName string) EventSource {
+	return NewEventSource(input, eventName, marshalText)
+}
+
 func BundleEventSources(srcs ...EventSource) EventSource {
 	return func(events chan<- event, wg *sync.WaitGroup) {
 		defer wg.Done()
@@ -91,4 +95,8 @@ func marshalEvent(e event) (string, error) {
 		return fmt.Sprintf("event: %s\ndata: %s\n\n", e.name, str), nil
 	}
 	return fmt.Sprintf("data: %s\n\n", str), nil
+}
+
+func marshalText(text any) ([]byte, error) {
+	return []byte(text.(string)), nil
 }
