@@ -57,7 +57,13 @@ func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler 
 	}()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		l, _, err := b.Listen(WithContext(r.Context()))
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Server does not support Flusher!", http.StatusInternalServerError)
+			return
+		}
+
+		events, _, err := b.Listen(WithContext(r.Context()))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -65,13 +71,12 @@ func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler 
 
 		w.Header().Add("Cache-Control", "no-store")
 		w.Header().Add("Content-Type", "text/event-stream")
+		w.Header().Set("Connection", "keep-alive")
 		w.WriteHeader(http.StatusOK)
 
-		for m := range l {
-			w.Write([]byte(m))
-			if flusher, ok := w.(http.Flusher); ok {
-				flusher.Flush()
-			}
+		for e := range events {
+			w.Write([]byte(e))
+			flusher.Flush()
 		}
 	})
 }
