@@ -3,7 +3,6 @@ package broadcaster
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -94,13 +93,13 @@ func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler 
 func marshalEvent(e event) (string, error) {
 	bytes, err := e.marshaler(e.value)
 	if err != nil {
-		return fmt.Sprintf("event: error\ndata: failed to serialize event: %v\n\n", err), nil
+		return "event: error\ndata: failed to serialize event: " + err.Error() + "\n\n", nil
 	}
 	str := strings.ReplaceAll(string(bytes), "\n", "\ndata: ")
 	if len(e.name) > 0 {
-		return fmt.Sprintf("event: %s\ndata: %s\n\n", e.name, str), nil
+		return "event: " + e.name + "\ndata: " + str + "\n\n", nil
 	}
-	return fmt.Sprintf("data: %s\n\n", str), nil
+	return "data: " + str + "\n\n", nil
 }
 
 func marshalText(text any) ([]byte, error) {
