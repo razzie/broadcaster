@@ -1,13 +1,17 @@
 package main
 
 import (
+	"embed"
 	"html/template"
 	"net/http"
 
 	"github.com/razzie/broadcaster"
 )
 
-var t = template.Must(template.ParseGlob("./template/*.html"))
+//go:embed template/*
+var fs embed.FS
+
+var t = template.Must(template.ParseFS(fs, "template/*.html"))
 
 type Message struct {
 	Name string
