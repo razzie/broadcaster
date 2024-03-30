@@ -116,11 +116,29 @@ func (b *broadcaster[In, Out]) unregister(listener chan<- Out) error {
 func (b *broadcaster[In, Out]) run() {
 	defer b.close()
 
+	var idleTimer *time.Timer
+	var idle <-chan time.Time
+	if b.idleTimeout > 0 {
+		idleTimer = time.NewTimer(b.idleTimeout)
+		idle = idleTimer.C
+	}
+
 	for {
+		if idleTimer != nil {
+			if !idleTimer.Stop() {
+				<-idleTimer.C
+			}
+			idleTimer.Reset(b.idleTimeout)
+		}
+
 		if b.blocking && len(b.listeners) == 0 {
-			req := <-b.reg
-			b.listeners[req.channel] = true
-			close(req.done)
+			select {
+			case req := <-b.reg:
+				b.listeners[req.channel] = true
+				close(req.done)
+			case <-idle:
+				return
+			}
 		}
 
 		select {
@@ -140,6 +158,9 @@ func (b *broadcaster[In, Out]) run() {
 				close(req.channel)
 			}
 			close(req.done)
+
+		case <-idle:
+			return
 		}
 	}
 }

@@ -14,10 +14,11 @@ var (
 )
 
 type broadcasterOptions struct {
-	logger     *slog.Logger
-	timeout    time.Duration
-	lisBufSize int
-	blocking   bool
+	logger      *slog.Logger
+	timeout     time.Duration
+	lisBufSize  int
+	blocking    bool
+	idleTimeout time.Duration
 }
 
 type BroadcasterOption func(*broadcasterOptions)
@@ -43,6 +44,12 @@ func WithListenerBufferSize(bufSize int) BroadcasterOption {
 func WithBlocking(blocking bool) BroadcasterOption {
 	return func(bo *broadcasterOptions) {
 		bo.blocking = blocking
+	}
+}
+
+func WithIdleTimeout(timeout time.Duration) BroadcasterOption {
+	return func(bo *broadcasterOptions) {
+		bo.idleTimeout = timeout
 	}
 }
 

@@ -30,6 +30,7 @@ WithLogger(logger *slog.Logger)
 WithTimeout(timeout time.Duration)
 WithListenerBufferSize(bufSize int)
 WithBlocking(blocking bool)
+WithIdleTimeout(timeout time.Duration)
 ```
 
 ### Listener options

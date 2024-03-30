@@ -42,7 +42,7 @@ func TestBroadcast(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
-	const timeout = 100 * time.Millisecond
+	const timeout = 10 * time.Millisecond
 
 	ch := make(chan int, 1)
 	b := NewBroadcaster(ch, WithTimeout(timeout))
@@ -139,5 +139,29 @@ func TestBroadcasterClose(t *testing.T) {
 	default:
 		t.Fatal("broadcaster should be closed")
 	}
+	assert.True(t, b.IsClosed())
+}
+
+func TestIdleTimeout(t *testing.T) {
+	const idleTimeout = 10 * time.Millisecond
+	ch := make(chan int)
+	b := NewBroadcaster(ch, WithIdleTimeout(idleTimeout))
+
+	assert.False(t, b.IsClosed())
+
+	time.Sleep(2 * idleTimeout)
+
+	assert.True(t, b.IsClosed())
+}
+
+func TestIdleTimeoutWithBlocking(t *testing.T) {
+	const idleTimeout = 10 * time.Millisecond
+	ch := make(chan int)
+	b := NewBroadcaster(ch, WithIdleTimeout(idleTimeout), WithBlocking(true))
+
+	assert.False(t, b.IsClosed())
+
+	time.Sleep(2 * idleTimeout)
+
 	assert.True(t, b.IsClosed())
 }
