@@ -53,10 +53,8 @@ func BundleEventSources(srcs ...EventSource) EventSource {
 	}
 }
 
-func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler {
+func (src EventSource) run() <-chan event {
 	events := make(chan event)
-	b := NewConverterBroadcaster(events, marshalEvent, opts...)
-
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go src(events, &wg)
@@ -64,7 +62,11 @@ func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler 
 		wg.Wait()
 		close(events)
 	}()
+	return events
+}
 
+func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler {
+	b := NewConverterBroadcaster(src.run(), marshalEvent, opts...)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
 		if !ok {
