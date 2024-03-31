@@ -42,6 +42,7 @@ WithContext(ctx context.Context)
 ### Server Sent Events
 ```go
 func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) EventSource
+func NewJsonEventSource[T any](input <-chan T, eventName string) EventSource
 func NewTextEventSource(input <-chan string, eventName string) EventSource
 func NewTemplateEventSource[T any](input <-chan T, eventName string, t *template.Template, templateName string) EventSource
 func BundleEventSources(srcs ...EventSource) EventSource

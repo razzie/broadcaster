@@ -16,7 +16,7 @@ import (
 
 func TestSSEBroadcast(t *testing.T) {
 	ch := make(chan int)
-	b := NewSSEBroadcaster(NewEventSource(ch, "", nil))
+	b := NewSSEBroadcaster(NewJsonEventSource(ch, ""))
 
 	var res1, res2 []byte
 	var wg sync.WaitGroup
@@ -39,7 +39,7 @@ func TestSSEBroadcast(t *testing.T) {
 
 func TestSSEBroadcastWithEventName(t *testing.T) {
 	ch := make(chan int)
-	b := NewSSEBroadcaster(NewEventSource(ch, "a", nil))
+	b := NewSSEBroadcaster(NewJsonEventSource(ch, "a"))
 
 	var res1, res2 []byte
 	var wg sync.WaitGroup

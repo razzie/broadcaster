@@ -35,6 +35,10 @@ func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler
 	}
 }
 
+func NewJsonEventSource[T any](input <-chan T, eventName string) EventSource {
+	return NewEventSource(input, eventName, json.Marshal)
+}
+
 func NewTextEventSource(input <-chan string, eventName string) EventSource {
 	return NewEventSource(input, eventName, marshalText)
 }
