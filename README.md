@@ -62,3 +62,11 @@ func NewOndemandBroadcaster[T any](src Source[T], opts ...BroadcasterOption) Bro
 type OndemandEventSource func() (EventSource, error)
 func NewOndemandSSEBroadcaster(src OndemandEventSource, opts ...BroadcasterOption) http.Handler
 ```
+
+### Converter broadcasters
+```go
+type Converter[In, Out any] func(In) (Out, bool)
+
+func NewConverterBroadcaster[In, Out any](input <-chan In, convert Converter[In, Out], opts ...BroadcasterOption) Broadcaster[Out]
+func NewOndemandConverterBroadcaster[In, Out any](src Source[In], convert Converter[In, Out], opts ...BroadcasterOption) Broadcaster[Out]
+```
