@@ -96,16 +96,16 @@ func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler 
 	})
 }
 
-func marshalEvent(e event) (string, error) {
+func marshalEvent(e event) (string, bool) {
 	bytes, err := e.marshaler(e.value)
 	if err != nil {
-		return "event: error\ndata: failed to serialize event: " + err.Error() + "\n\n", nil
+		return "event: error\ndata: failed to serialize event: " + err.Error() + "\n\n", true
 	}
 	str := strings.ReplaceAll(string(bytes), "\n", "\ndata: ")
 	if len(e.name) > 0 {
-		return "event: " + e.name + "\ndata: " + str + "\n\n", nil
+		return "event: " + e.name + "\ndata: " + str + "\n\n", true
 	}
-	return "data: " + str + "\n\n", nil
+	return "data: " + str + "\n\n", true
 }
 
 func marshalText(text any) ([]byte, error) {
