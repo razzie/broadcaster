@@ -22,6 +22,9 @@ type Broadcaster[T any] interface {
 }
 
 func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) Broadcaster[T]
+
+type Source[T any] func() (<-chan T, error)
+func NewOndemandBroadcaster[T any](src Source[T], opts ...BroadcasterOption) Broadcaster[T]
 ```
 
 ### Broadcaster options
