@@ -2,19 +2,16 @@ package broadcaster
 
 import (
 	"context"
-	"log/slog"
 	"time"
 )
 
 var (
 	defaultBroadcasterOptions = broadcasterOptions{
-		logger:  slog.Default(),
 		timeout: -1,
 	}
 )
 
 type broadcasterOptions struct {
-	logger      *slog.Logger
 	timeout     time.Duration
 	lisBufSize  int
 	blocking    bool
@@ -22,12 +19,6 @@ type broadcasterOptions struct {
 }
 
 type BroadcasterOption func(*broadcasterOptions)
-
-func WithLogger(logger *slog.Logger) BroadcasterOption {
-	return func(bo *broadcasterOptions) {
-		bo.logger = logger
-	}
-}
 
 func WithTimeout(timeout time.Duration) BroadcasterOption {
 	return func(bo *broadcasterOptions) {
@@ -54,8 +45,9 @@ func WithIdleTimeout(timeout time.Duration) BroadcasterOption {
 }
 
 type listenerOptions struct {
-	bufSize int
-	ctx     context.Context
+	ctx       context.Context
+	onTimeout func()
+	bufSize   int
 }
 
 type ListenerOption func(*listenerOptions)
@@ -69,5 +61,11 @@ func WithBufferSize(bufSize int) ListenerOption {
 func WithContext(ctx context.Context) ListenerOption {
 	return func(lo *listenerOptions) {
 		lo.ctx = ctx
+	}
+}
+
+func WithTimeoutCallback(onTimeout func()) ListenerOption {
+	return func(lo *listenerOptions) {
+		lo.onTimeout = onTimeout
 	}
 }

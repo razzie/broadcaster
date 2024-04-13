@@ -47,7 +47,11 @@ func TestTimeout(t *testing.T) {
 	ch := make(chan int, 1)
 	b := NewBroadcaster(ch, WithTimeout(timeout))
 
-	l, _, err := b.Listen()
+	timeoutCallbackCalled := false
+	timeoutCallback := func() {
+		timeoutCallbackCalled = true
+	}
+	l, _, err := b.Listen(WithTimeoutCallback(timeoutCallback))
 	assert.NoError(t, err)
 	require.NotNil(t, l)
 
@@ -58,6 +62,7 @@ func TestTimeout(t *testing.T) {
 	time.Sleep(timeout * 2)
 	_, ok := <-l
 	assert.False(t, ok)
+	assert.True(t, timeoutCallbackCalled)
 }
 
 func TestBlocking(t *testing.T) {

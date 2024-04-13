@@ -26,7 +26,6 @@ func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) Broadcaste
 
 ### Broadcaster options
 ```go
-WithLogger(logger *slog.Logger)
 WithTimeout(timeout time.Duration)
 WithListenerBufferSize(bufSize int)
 WithBlocking(blocking bool)
@@ -37,6 +36,7 @@ WithIdleTimeout(timeout time.Duration)
 ```go
 WithBufferSize(bufSize int)
 WithContext(ctx context.Context)
+WithTimeoutCallback(func())
 ```
 
 ### Server Sent Events
