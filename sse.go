@@ -2,6 +2,7 @@ package broadcaster
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"html/template"
 	"net/http"
@@ -71,29 +72,37 @@ func (src EventSource) run() <-chan event {
 
 func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler {
 	b := NewConverterBroadcaster(src.run(), marshalEvent, opts...)
+	listen := func(ctx context.Context) (<-chan string, error) {
+		l, _, err := b.Listen(WithContext(ctx))
+		return l, err
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "Server does not support Flusher!", http.StatusInternalServerError)
-			return
-		}
-
-		events, _, err := b.Listen(WithContext(r.Context()))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Add("Cache-Control", "no-store")
-		w.Header().Add("Content-Type", "text/event-stream")
-		w.Header().Set("Connection", "keep-alive")
-		w.WriteHeader(http.StatusOK)
-
-		for e := range events {
-			w.Write([]byte(e))
-			flusher.Flush()
-		}
+		serveSSE(listen, w, r)
 	})
+}
+
+func serveSSE(listen func(context.Context) (<-chan string, error), w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Server does not support Flusher!", http.StatusInternalServerError)
+		return
+	}
+
+	events, err := listen(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Cache-Control", "no-store")
+	w.Header().Add("Content-Type", "text/event-stream")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	for e := range events {
+		w.Write([]byte(e))
+		flusher.Flush()
+	}
 }
 
 func marshalEvent(e event) (string, bool) {

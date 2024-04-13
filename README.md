@@ -22,9 +22,6 @@ type Broadcaster[T any] interface {
 }
 
 func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) Broadcaster[T]
-
-type Source[T any] func() (<-chan T, error)
-func NewOndemandBroadcaster[T any](src Source[T], opts ...BroadcasterOption) Broadcaster[T]
 ```
 
 ### Broadcaster options
@@ -44,15 +41,24 @@ WithTimeoutCallback(func())
 
 ### Server Sent Events
 ```go
+type Marshaler func(any) ([]byte, error)
+
 func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) EventSource
 func NewJsonEventSource[T any](input <-chan T, eventName string) EventSource
 func NewTextEventSource(input <-chan string, eventName string) EventSource
 func NewTemplateEventSource[T any](input <-chan T, eventName string, t *template.Template, templateName string) EventSource
 func BundleEventSources(srcs ...EventSource) EventSource
-```
-`Marshaler` type is compatible with `json.Marshal` (which is used by default in case `marshaler` is left `nil`).
-`eventName` can be an empty string.
 
-```go
 func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler
+```
+* `Marshaler` type is compatible with `json.Marshal` (which is used by default in case `marshaler` is left `nil`).
+* `eventName` can be an empty string.
+
+### On-demand broadcasters
+```go
+type Source[T any] func() (<-chan T, error)
+func NewOndemandBroadcaster[T any](src Source[T], opts ...BroadcasterOption) Broadcaster[T]
+
+type OndemandEventSource func() (EventSource, error)
+func NewOndemandSSEBroadcaster(src OndemandEventSource, opts ...BroadcasterOption) http.Handler
 ```
