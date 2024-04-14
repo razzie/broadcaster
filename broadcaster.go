@@ -1,17 +1,19 @@
 package broadcaster
 
 import (
-	"fmt"
+	"errors"
 	"sync"
 	"time"
 )
 
-var ErrBroadcasterClosed = fmt.Errorf("broadcaster is closed")
+var ErrBroadcasterClosed = errors.New("broadcaster is closed")
+
+type CancelFunc func()
 
 type Converter[In, Out any] func(In) (Out, bool)
 
 type Broadcaster[T any] interface {
-	Listen(opts ...ListenerOption) (ch <-chan T, closer func(), err error)
+	Listen(opts ...ListenerOption) (<-chan T, CancelFunc, error)
 	IsClosed() bool
 	Done() <-chan struct{}
 }
@@ -53,7 +55,7 @@ func NewConverterBroadcaster[In, Out any](input <-chan In, convert Converter[In,
 	return b
 }
 
-func (b *broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, cancel func(), err error) {
+func (b *broadcaster[In, Out]) Listen(opts ...ListenerOption) (<-chan Out, CancelFunc, error) {
 	lisOpts := listenerOptions{
 		bufSize: b.lisBufSize,
 	}
@@ -66,7 +68,7 @@ func (b *broadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, ca
 		return nil, nil, err
 	}
 
-	cancel = sync.OnceFunc(func() { b.unregister(listener) })
+	cancel := sync.OnceFunc(func() { b.unregister(listener) })
 	if lisOpts.ctx != nil {
 		go func() {
 			<-lisOpts.ctx.Done()

@@ -30,7 +30,7 @@ func NewOndemandConverterBroadcaster[In, Out any](src Source[In], convert Conver
 	}
 }
 
-func (ob *ondemandBroadcaster[In, Out]) Listen(opts ...ListenerOption) (ch <-chan Out, closer func(), err error) {
+func (ob *ondemandBroadcaster[In, Out]) Listen(opts ...ListenerOption) (<-chan Out, CancelFunc, error) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 	if ob.b == nil || ob.b.IsClosed() {
