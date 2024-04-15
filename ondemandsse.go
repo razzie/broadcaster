@@ -1,7 +1,6 @@
 package broadcaster
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -16,8 +15,8 @@ func NewOndemandSSEBroadcaster(src OndemandEventSource, opts ...BroadcasterOptio
 		return src.run(), nil
 	}
 	b := NewOndemandConverterBroadcaster(source, marshalEvent, opts...)
-	listen := func(ctx context.Context) (<-chan string, error) {
-		l, _, err := b.Listen(WithContext(ctx))
+	listen := func(r *http.Request) (<-chan string, error) {
+		l, _, err := b.Listen(WithContext(r.Context()))
 		return l, err
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

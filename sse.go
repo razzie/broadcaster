@@ -2,7 +2,6 @@ package broadcaster
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"html/template"
 	"net/http"
@@ -72,8 +71,8 @@ func (src EventSource) run() <-chan event {
 
 func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler {
 	b := NewConverterBroadcaster(src.run(), marshalEvent, opts...)
-	listen := func(ctx context.Context) (<-chan string, error) {
-		l, _, err := b.Listen(WithContext(ctx))
+	listen := func(r *http.Request) (<-chan string, error) {
+		l, _, err := b.Listen(WithContext(r.Context()))
 		return l, err
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -81,14 +80,14 @@ func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler 
 	})
 }
 
-func serveSSE(listen func(context.Context) (<-chan string, error), w http.ResponseWriter, r *http.Request) {
+func serveSSE(listen func(*http.Request) (<-chan string, error), w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Server does not support Flusher!", http.StatusInternalServerError)
 		return
 	}
 
-	events, err := listen(r.Context())
+	events, err := listen(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
