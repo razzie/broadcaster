@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
@@ -18,11 +17,8 @@ func TestSSEBroadcast(t *testing.T) {
 	ch := make(chan int)
 	b := NewSSEBroadcaster(NewJsonEventSource(ch, ""))
 
-	var res1, res2 []byte
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go runRequest(b, &res1, &wg)
-	go runRequest(b, &res2, &wg)
+	resp1 := runRequest(b, "/")
+	resp2 := runRequest(b, "/")
 
 	time.Sleep(time.Millisecond)
 
@@ -30,22 +26,18 @@ func TestSSEBroadcast(t *testing.T) {
 	ch <- 2
 	ch <- 3
 	close(ch)
-	wg.Wait()
 
 	expected := "data: 1\n\ndata: 2\n\ndata: 3\n\n"
-	assert.Equal(t, expected, string(res1))
-	assert.Equal(t, expected, string(res2))
+	assert.Equal(t, expected, <-resp1)
+	assert.Equal(t, expected, <-resp2)
 }
 
 func TestSSEBroadcastWithEventName(t *testing.T) {
 	ch := make(chan int)
 	b := NewSSEBroadcaster(NewJsonEventSource(ch, "a"))
 
-	var res1, res2 []byte
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go runRequest(b, &res1, &wg)
-	go runRequest(b, &res2, &wg)
+	resp1 := runRequest(b, "/")
+	resp2 := runRequest(b, "/")
 
 	time.Sleep(time.Millisecond)
 
@@ -53,49 +45,40 @@ func TestSSEBroadcastWithEventName(t *testing.T) {
 	ch <- 2
 	ch <- 3
 	close(ch)
-	wg.Wait()
 
 	expected := "event: a\ndata: 1\n\nevent: a\ndata: 2\n\nevent: a\ndata: 3\n\n"
-	assert.Equal(t, expected, string(res1))
-	assert.Equal(t, expected, string(res2))
+	assert.Equal(t, expected, <-resp1)
+	assert.Equal(t, expected, <-resp2)
 }
 
 func TestMultilineEvent(t *testing.T) {
 	ch := make(chan string)
 	b := NewSSEBroadcaster(NewTextEventSource(ch, ""))
 
-	var res []byte
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go runRequest(b, &res, &wg)
+	resp := runRequest(b, "/")
 
 	time.Sleep(time.Millisecond)
 
 	ch <- "ab\ncd"
 	close(ch)
-	wg.Wait()
 
 	expected := "data: ab\ndata: cd\n\n"
-	assert.Equal(t, expected, string(res))
+	assert.Equal(t, expected, <-resp)
 }
 
 func TestTextEventSource(t *testing.T) {
 	ch := make(chan string)
 	b := NewSSEBroadcaster(NewTextEventSource(ch, ""))
 
-	var res []byte
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go runRequest(b, &res, &wg)
+	resp := runRequest(b, "/")
 
 	time.Sleep(time.Millisecond)
 
 	ch <- "a b c d"
 	close(ch)
-	wg.Wait()
 
 	expected := "data: a b c d\n\n"
-	assert.Equal(t, expected, string(res))
+	assert.Equal(t, expected, <-resp)
 }
 
 func TestTemplateEventSource(t *testing.T) {
@@ -103,19 +86,15 @@ func TestTemplateEventSource(t *testing.T) {
 	tmpl := template.Must(template.New("").Parse("<span>Hello {{.}}</span>"))
 	b := NewSSEBroadcaster(NewTemplateEventSource(ch, "", tmpl, ""))
 
-	var res []byte
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go runRequest(b, &res, &wg)
+	resp := runRequest(b, "/")
 
 	time.Sleep(time.Millisecond)
 
 	ch <- "World"
 	close(ch)
-	wg.Wait()
 
 	expected := "data: <span>Hello World</span>\n\n"
-	assert.Equal(t, expected, string(res))
+	assert.Equal(t, expected, <-resp)
 }
 
 func TestBundleEventSources(t *testing.T) {
@@ -125,10 +104,7 @@ func TestBundleEventSources(t *testing.T) {
 	event2 := NewEventSource(ch2, "event2", nil)
 	b := NewSSEBroadcaster(BundleEventSources(event1, event2))
 
-	var res []byte
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go runRequest(b, &res, &wg)
+	resp := runRequest(b, "/")
 
 	time.Sleep(time.Millisecond)
 	ch1 <- 1
@@ -136,20 +112,22 @@ func TestBundleEventSources(t *testing.T) {
 	ch2 <- 2
 	close(ch1)
 	close(ch2)
-	wg.Wait()
 
 	expected := "event: event1\ndata: 1\n\nevent: event2\ndata: 2\n\n"
-	assert.Equal(t, expected, string(res))
+	assert.Equal(t, expected, <-resp)
 }
 
-func runRequest(h http.Handler, p *[]byte, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	req := httptest.NewRequest("GET", "/events", nil)
+func runRequest(h http.Handler, path string) <-chan string {
+	resp := make(chan string)
+	req := httptest.NewRequest("GET", path, nil)
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-
-	res := rec.Result()
-	defer res.Body.Close()
-	*p, _ = io.ReadAll(rec.Body)
+	go func() {
+		h.ServeHTTP(rec, req)
+		res := rec.Result()
+		defer res.Body.Close()
+		defer close(resp)
+		all, _ := io.ReadAll(res.Body)
+		resp <- string(all)
+	}()
+	return resp
 }

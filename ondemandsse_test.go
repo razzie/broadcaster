@@ -2,7 +2,6 @@ package broadcaster_test
 
 import (
 	"errors"
-	"sync"
 	"testing"
 
 	. "github.com/razzie/broadcaster"
@@ -19,14 +18,9 @@ func TestOndemandSSEBroadcaster(t *testing.T) {
 	}
 	b := NewOndemandSSEBroadcaster(src, WithBlocking(true))
 
-	var res []byte
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go runRequest(b, &res, &wg)
-	wg.Wait()
-
+	resp := runRequest(b, "/")
 	expected := "data: a\n\n"
-	assert.Equal(t, expected, string(res))
+	assert.Equal(t, expected, <-resp)
 }
 
 func TestOndemandSSEBroadcasterError(t *testing.T) {
@@ -36,11 +30,7 @@ func TestOndemandSSEBroadcasterError(t *testing.T) {
 	}
 	b := NewOndemandSSEBroadcaster(src, WithBlocking(true))
 
-	var res []byte
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go runRequest(b, &res, &wg)
-	wg.Wait()
-
-	assert.Equal(t, errorText+"\n", string(res))
+	resp := runRequest(b, "/")
+	expected := errorText + "\n"
+	assert.Equal(t, expected, <-resp)
 }
