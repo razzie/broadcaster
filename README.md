@@ -22,7 +22,7 @@ As an extra feature, the library supports the creation of a http.Handler that br
 | NewMultiBroadcaster[K, T]                | MultiSource[K, T]   | yes       | yes          | no        | no  |
 | NewMultiConverterBroadcaster[K, In, Out] | MultiSource[K, In]  | yes       | yes          | yes       | no  |
 | NewSSEBroadcaster                        | EventSource         | no        | yes*         | yes*      | yes |
-| NewMultiSSEBroadcaster                   | MultiEventSource[K] | yes       | yes          | yes*      | yes |
+| NewMultiSSEBroadcaster[K]                | MultiEventSource[K] | yes       | yes          | yes*      | yes |
 
 \* SSE broadcasters use the marshaler from `EventSource` and support multiple sources when used with `BundleEventSources`
 
