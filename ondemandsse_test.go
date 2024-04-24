@@ -8,7 +8,7 @@ import (
 )
 
 func TestOndemandSSEBroadcaster(t *testing.T) {
-	src := func() (EventSource, error) {
+	src := func() (<-chan Event, error) {
 		ch := make(chan string, 1)
 		ch <- "a"
 		close(ch)
@@ -24,7 +24,7 @@ func TestOndemandSSEBroadcaster(t *testing.T) {
 
 func TestOndemandSSEBroadcasterError(t *testing.T) {
 	const errorText = "source failed"
-	src := func() (EventSource, error) {
+	src := func() (<-chan Event, error) {
 		return nil, errors.New(errorText)
 	}
 	b := NewOndemandSSEBroadcaster(src, WithBlocking(true))

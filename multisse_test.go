@@ -62,7 +62,7 @@ func (src multiEventSource) GetKey(r *http.Request) (string, error) {
 	return key, nil
 }
 
-func (src multiEventSource) GetEventSource(key string) (EventSource, CancelFunc, error) {
+func (src multiEventSource) GetEventSource(key string) (<-chan Event, CancelFunc, error) {
 	if key == "invalid" {
 		return nil, nil, errors.New(invalidKeyErrText)
 	}

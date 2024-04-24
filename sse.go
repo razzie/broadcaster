@@ -29,14 +29,13 @@ func (e event) Read() (name, data string) {
 
 type Marshaler func(any) ([]byte, error)
 
-type EventSource func(chan<- Event, *sync.WaitGroup)
-
-func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) EventSource {
+func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) <-chan Event {
 	if marshaler == nil {
 		marshaler = json.Marshal
 	}
-	return func(events chan<- Event, wg *sync.WaitGroup) {
-		defer wg.Done()
+	events := make(chan Event)
+	go func() {
+		defer close(events)
 		for in := range input {
 			events <- event{
 				name:      eventName,
@@ -44,36 +43,35 @@ func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler
 				marshaler: marshaler,
 			}
 		}
-	}
+	}()
+	return events
 }
 
-func NewJsonEventSource[T any](input <-chan T, eventName string) EventSource {
+func NewJsonEventSource[T any](input <-chan T, eventName string) <-chan Event {
 	return NewEventSource(input, eventName, json.Marshal)
 }
 
-func NewTextEventSource(input <-chan string, eventName string) EventSource {
+func NewTextEventSource(input <-chan string, eventName string) <-chan Event {
 	return NewEventSource(input, eventName, marshalText)
 }
 
-func NewTemplateEventSource[T any](input <-chan T, eventName string, t *template.Template, templateName string) EventSource {
+func NewTemplateEventSource[T any](input <-chan T, eventName string, t *template.Template, templateName string) <-chan Event {
 	return NewEventSource(input, eventName, marshalTemplate(t, templateName))
 }
 
-func BundleEventSources(srcs ...EventSource) EventSource {
-	return func(events chan<- Event, wg *sync.WaitGroup) {
-		defer wg.Done()
-		wg.Add(len(srcs))
-		for _, src := range srcs {
-			go src(events, wg)
-		}
-	}
-}
-
-func (src EventSource) run() <-chan Event {
+func BundleEventSources(srcs ...<-chan Event) <-chan Event {
 	events := make(chan Event)
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go src(events, &wg)
+	wg.Add(len(srcs))
+	for _, src := range srcs {
+		src := src
+		go func() {
+			defer wg.Done()
+			for e := range src {
+				events <- e
+			}
+		}()
+	}
 	go func() {
 		wg.Wait()
 		close(events)
@@ -81,8 +79,8 @@ func (src EventSource) run() <-chan Event {
 	return events
 }
 
-func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler {
-	b := NewConverterBroadcaster(src.run(), marshalEvent, opts...)
+func NewSSEBroadcaster(src <-chan Event, opts ...BroadcasterOption) http.Handler {
+	b := NewConverterBroadcaster(src, marshalEvent, opts...)
 	listen := func(r *http.Request) (<-chan string, error) {
 		l, _, err := b.Listen(WithContext(r.Context()))
 		return l, err

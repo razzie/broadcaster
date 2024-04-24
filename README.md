@@ -21,10 +21,10 @@ As an extra feature, the library supports the creation of a http.Handler that br
 | NewOndemandConverterBroadcaster[In, Out] | Source[In]          | yes       | no           | yes       | no  |
 | NewMultiBroadcaster[K, T]                | MultiSource[K, T]   | yes       | yes          | no        | no  |
 | NewMultiConverterBroadcaster[K, In, Out] | MultiSource[K, In]  | yes       | yes          | yes       | no  |
-| NewSSEBroadcaster                        | EventSource         | no        | yes*         | yes*      | yes |
+| NewSSEBroadcaster                        | <-chan Event        | no        | yes*         | yes*      | yes |
 | NewMultiSSEBroadcaster[K]                | MultiEventSource[K] | yes       | yes          | yes*      | yes |
 
-\* SSE broadcasters use the marshaler from `EventSource` and support multiple sources when used with `BundleEventSources`
+\* SSE broadcasters use the marshaler from an event source and support multiple sources when used with `BundleEventSources`
 
 ## API reference
 ### Broadcaster interface + instantiation
@@ -58,16 +58,15 @@ WithTimeoutCallback(func())
 type Event interface {
 	Read() (name, data string)
 }
-type EventSource func(chan<- Event, *sync.WaitGroup)
 type Marshaler func(any) ([]byte, error)
 
-func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) EventSource
-func NewJsonEventSource[T any](input <-chan T, eventName string) EventSource
-func NewTextEventSource(input <-chan string, eventName string) EventSource
-func NewTemplateEventSource[T any](input <-chan T, eventName string, t *template.Template, templateName string) EventSource
-func BundleEventSources(srcs ...EventSource) EventSource
+func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) <-chan Event
+func NewJsonEventSource[T any](input <-chan T, eventName string) <-chan Event
+func NewTextEventSource(input <-chan string, eventName string) <-chan Event
+func NewTemplateEventSource[T any](input <-chan T, eventName string, t *template.Template, templateName string) <-chan Event
+func BundleEventSources(srcs ...<-chan Event) <-chan Event
 
-func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler
+func NewSSEBroadcaster(src <-chan Event, opts ...BroadcasterOption) http.Handler
 ```
 * `Marshaler` type is compatible with `json.Marshal` (which is used by default in case `marshaler` is left `nil`).
 * `eventName` can be an empty string.
@@ -77,7 +76,7 @@ func NewSSEBroadcaster(src EventSource, opts ...BroadcasterOption) http.Handler
 type Source[T any] func() (<-chan T, error)
 func NewOndemandBroadcaster[T any](src Source[T], opts ...BroadcasterOption) Broadcaster[T]
 
-type OndemandEventSource func() (EventSource, error)
+type OndemandEventSource func() (<-chan Event, error)
 func NewOndemandSSEBroadcaster(src OndemandEventSource, opts ...BroadcasterOption) http.Handler
 ```
 
@@ -87,7 +86,7 @@ type MultiSource[K comparable, T any] func(K) (<-chan T, CancelFunc, error)
 
 type MultiEventSource[K comparable] interface {
 	GetKey(*http.Request) (K, error)
-	GetEventSource(K) (EventSource, CancelFunc, error)
+	GetEventSource(K) (<-chan Event, CancelFunc, error)
 }
 
 type MultiBroadcaster[K comparable, T any] interface {

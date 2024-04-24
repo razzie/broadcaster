@@ -4,15 +4,15 @@ import (
 	"net/http"
 )
 
-type OndemandEventSource func() (EventSource, error)
+type OndemandEventSource func() (<-chan Event, error)
 
 func NewOndemandSSEBroadcaster(src OndemandEventSource, opts ...BroadcasterOption) http.Handler {
 	source := func() (<-chan Event, error) {
-		src, err := src()
+		events, err := src()
 		if err != nil {
 			return nil, err
 		}
-		return src.run(), nil
+		return events, nil
 	}
 	b := NewOndemandConverterBroadcaster(source, marshalEvent, opts...)
 	listen := func(r *http.Request) (<-chan string, error) {
