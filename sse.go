@@ -9,26 +9,38 @@ import (
 	"sync"
 )
 
+type Event interface {
+	Read() (name, data string)
+}
+
 type event struct {
 	name      string
-	value     any
+	data      any
 	marshaler Marshaler
+}
+
+func (e event) Read() (name, data string) {
+	bytes, err := e.marshaler(e.data)
+	if err != nil {
+		return "error", "failed to serialize event: " + err.Error()
+	}
+	return e.name, string(bytes)
 }
 
 type Marshaler func(any) ([]byte, error)
 
-type EventSource func(events chan<- event, wg *sync.WaitGroup)
+type EventSource func(chan<- Event, *sync.WaitGroup)
 
 func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) EventSource {
 	if marshaler == nil {
 		marshaler = json.Marshal
 	}
-	return func(events chan<- event, wg *sync.WaitGroup) {
+	return func(events chan<- Event, wg *sync.WaitGroup) {
 		defer wg.Done()
 		for in := range input {
 			events <- event{
 				name:      eventName,
-				value:     in,
+				data:      in,
 				marshaler: marshaler,
 			}
 		}
@@ -48,7 +60,7 @@ func NewTemplateEventSource[T any](input <-chan T, eventName string, t *template
 }
 
 func BundleEventSources(srcs ...EventSource) EventSource {
-	return func(events chan<- event, wg *sync.WaitGroup) {
+	return func(events chan<- Event, wg *sync.WaitGroup) {
 		defer wg.Done()
 		wg.Add(len(srcs))
 		for _, src := range srcs {
@@ -57,8 +69,8 @@ func BundleEventSources(srcs ...EventSource) EventSource {
 	}
 }
 
-func (src EventSource) run() <-chan event {
-	events := make(chan event)
+func (src EventSource) run() <-chan Event {
+	events := make(chan Event)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go src(events, &wg)
@@ -104,16 +116,13 @@ func serveSSE(listen func(*http.Request) (<-chan string, error), w http.Response
 	}
 }
 
-func marshalEvent(e event) (string, bool) {
-	bytes, err := e.marshaler(e.value)
-	if err != nil {
-		return "event: error\ndata: failed to serialize event: " + err.Error() + "\n\n", true
+func marshalEvent(e Event) (string, bool) {
+	name, data := e.Read()
+	data = strings.ReplaceAll(data, "\n", "\ndata: ")
+	if len(name) > 0 {
+		return "event: " + name + "\ndata: " + data + "\n\n", true
 	}
-	str := strings.ReplaceAll(string(bytes), "\n", "\ndata: ")
-	if len(e.name) > 0 {
-		return "event: " + e.name + "\ndata: " + str + "\n\n", true
-	}
-	return "data: " + str + "\n\n", true
+	return "data: " + data + "\n\n", true
 }
 
 func marshalText(text any) ([]byte, error) {

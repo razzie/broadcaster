@@ -10,7 +10,7 @@ type MultiEventSource[K comparable] interface {
 }
 
 func NewMultiSSEBroadcaster[K comparable](src MultiEventSource[K], opts ...BroadcasterOption) http.Handler {
-	source := func(key K) (<-chan event, CancelFunc, error) {
+	source := func(key K) (<-chan Event, CancelFunc, error) {
 		src, cancel, err := src.GetEventSource(key)
 		if err != nil {
 			return nil, nil, err

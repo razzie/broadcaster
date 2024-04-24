@@ -7,7 +7,7 @@ import (
 type OndemandEventSource func() (EventSource, error)
 
 func NewOndemandSSEBroadcaster(src OndemandEventSource, opts ...BroadcasterOption) http.Handler {
-	source := func() (<-chan event, error) {
+	source := func() (<-chan Event, error) {
 		src, err := src()
 		if err != nil {
 			return nil, err

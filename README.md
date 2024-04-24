@@ -55,6 +55,10 @@ WithTimeoutCallback(func())
 
 ### Server Sent Events
 ```go
+type Event interface {
+	Read() (name, data string)
+}
+type EventSource func(chan<- Event, *sync.WaitGroup)
 type Marshaler func(any) ([]byte, error)
 
 func NewEventSource[T any](input <-chan T, eventName string, marshaler Marshaler) EventSource
