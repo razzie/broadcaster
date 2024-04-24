@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	. "github.com/razzie/broadcaster"
-
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -24,15 +22,22 @@ func TestMultiSSEBroadcaster(t *testing.T) {
 	resp1 := runRequest(mux, "/sse/1")
 	resp2 := runRequest(mux, "/sse/2")
 
-	assert.Equal(t, "data: 1\n\n", <-resp1)
-	assert.Equal(t, "data: 2\n\n", <-resp2)
+	if expected, got := "data: 1\n\n", <-resp1; expected != got {
+		t.Errorf("expected <-resp1 == %q, got %q", expected, got)
+	}
+	if expected, got := "data: 2\n\n", <-resp2; expected != got {
+		t.Errorf("expected <-resp2 == %q, got %q", expected, got)
+	}
 }
 
 func TestMultiSSEBroadcasterBadKey(t *testing.T) {
 	b := NewMultiSSEBroadcaster(new(multiEventSource))
 
 	resp := runRequest(b, "/")
-	assert.Equal(t, noKeyErrText+"\n", <-resp)
+
+	if expected, got := noKeyErrText+"\n", <-resp; expected != got {
+		t.Errorf("expected <-resp == %q, got %q", expected, got)
+	}
 }
 
 func TestMultiSSEBroadcasterSourceError(t *testing.T) {
@@ -41,7 +46,10 @@ func TestMultiSSEBroadcasterSourceError(t *testing.T) {
 	mux.Handle("GET /sse/{key}", b)
 
 	resp := runRequest(mux, "/sse/"+invalidKey)
-	assert.Equal(t, invalidKeyErrText+"\n", <-resp)
+
+	if expected, got := invalidKeyErrText+"\n", <-resp; expected != got {
+		t.Errorf("expected <-resp == %q, got %q", expected, got)
+	}
 }
 
 type multiEventSource struct{}

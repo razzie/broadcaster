@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	. "github.com/razzie/broadcaster"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestOndemandSSEBroadcaster(t *testing.T) {
@@ -19,8 +17,9 @@ func TestOndemandSSEBroadcaster(t *testing.T) {
 	b := NewOndemandSSEBroadcaster(src, WithBlocking(true))
 
 	resp := runRequest(b, "/")
-	expected := "data: a\n\n"
-	assert.Equal(t, expected, <-resp)
+	if expected, got := "data: a\n\n", <-resp; expected != got {
+		t.Errorf("expected <-resp == %q, got %q", expected, got)
+	}
 }
 
 func TestOndemandSSEBroadcasterError(t *testing.T) {
@@ -31,6 +30,7 @@ func TestOndemandSSEBroadcasterError(t *testing.T) {
 	b := NewOndemandSSEBroadcaster(src, WithBlocking(true))
 
 	resp := runRequest(b, "/")
-	expected := errorText + "\n"
-	assert.Equal(t, expected, <-resp)
+	if expected, got := errorText+"\n", <-resp; expected != got {
+		t.Errorf("expected <-resp == %q, got %q", expected, got)
+	}
 }

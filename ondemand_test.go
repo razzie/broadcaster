@@ -1,13 +1,13 @@
 package broadcaster_test
 
 import (
+	"errors"
 	"testing"
 
 	. "github.com/razzie/broadcaster"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
+
+var ErrExpected = errors.New("expected error")
 
 func TestOndemandBroadcaster(t *testing.T) {
 	src := func() (<-chan int, error) {
@@ -18,20 +18,23 @@ func TestOndemandBroadcaster(t *testing.T) {
 	b := NewOndemandBroadcaster(src, WithBlocking(true))
 
 	l, _, err := b.Listen()
-	require.NotNil(t, l)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
 
-	n, ok := <-l
-	assert.Equal(t, 1, n)
-	assert.True(t, ok)
+	if val := <-l; val != 1 {
+		t.Errorf("expected <-l == 1, but got %d", val)
+	}
 }
 
 func TestOndemandBroadcasterError(t *testing.T) {
 	src := func() (<-chan int, error) {
-		return nil, assert.AnError
+		return nil, ErrExpected
 	}
 	b := NewOndemandBroadcaster(src)
 
 	_, _, err := b.Listen()
-	assert.Equal(t, assert.AnError, err)
+	if err != ErrExpected {
+		t.Errorf("expected err == ErrExpected, got '%v'", err)
+	}
 }

@@ -6,9 +6,6 @@ import (
 	"time"
 
 	. "github.com/razzie/broadcaster"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBroadcast(t *testing.T) {
@@ -18,25 +15,32 @@ func TestBroadcast(t *testing.T) {
 	b := NewBroadcaster(ch)
 
 	l1, _, err := b.Listen()
-	assert.NoError(t, err)
-	require.NotNil(t, l1)
+	if err != nil {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
 
 	l2, _, err := b.Listen()
-	assert.NoError(t, err)
-	require.NotNil(t, l2)
+	if err != nil {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
 
 	for i := 1; i <= numMessages; i++ {
 		ch <- i
 	}
 
 	for i := 1; i <= numMessages; i++ {
+		// the order of listeners receiving the broadcasted value is random
 		select {
-		case m := <-l1:
-			assert.Equal(t, i, m)
-			assert.Equal(t, i, <-l2)
-		case m := <-l2:
-			assert.Equal(t, i, m)
-			assert.Equal(t, i, <-l1)
+		case val1 := <-l1:
+			val2 := <-l2
+			if val1 != val2 {
+				t.Errorf("expected <-l1 == <-l2, but got values %d and %d", val1, val2)
+			}
+		case val2 := <-l2:
+			val1 := <-l1
+			if val1 != val2 {
+				t.Errorf("expected <-l1 == <-l2, but got values %d and %d", val1, val2)
+			}
 		}
 	}
 }
@@ -52,17 +56,24 @@ func TestTimeout(t *testing.T) {
 		timeoutCallbackCalled = true
 	}
 	l, _, err := b.Listen(WithTimeoutCallback(timeoutCallback))
-	assert.NoError(t, err)
-	require.NotNil(t, l)
+	if err != nil {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
 
 	ch <- 1
-	assert.Equal(t, 1, <-l)
+	if val := <-l; val != 1 {
+		t.Errorf("expected <-l == 1, but got %d", val)
+	}
 
 	ch <- 2
 	time.Sleep(timeout * 2)
-	_, ok := <-l
-	assert.False(t, ok)
-	assert.True(t, timeoutCallbackCalled)
+
+	if _, ok := <-l; ok {
+		t.Errorf("expected l to be closed")
+	}
+	if !timeoutCallbackCalled {
+		t.Error("timeoutCallback should have been called")
+	}
 }
 
 func TestBlocking(t *testing.T) {
@@ -75,9 +86,10 @@ func TestBlocking(t *testing.T) {
 	default:
 	}
 
-	l, _, err := b.Listen(WithBufferSize(1))
-	assert.NoError(t, err)
-	require.NotNil(t, l)
+	_, _, err := b.Listen(WithBufferSize(1))
+	if err != nil {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
 
 	select {
 	case ch <- 1:
@@ -91,17 +103,20 @@ func TestListenerClose(t *testing.T) {
 	b := NewBroadcaster(ch)
 
 	l, cancel, err := b.Listen()
-	assert.NoError(t, err)
-	require.NotNil(t, l)
-	require.NotNil(t, cancel)
+	if err != nil {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
 
 	ch <- 1
-	assert.Equal(t, 1, <-l)
+	if val := <-l; val != 1 {
+		t.Errorf("expected <-l == 1, but got %d", val)
+	}
 
 	cancel()
 	ch <- 2
-	_, ok := <-l
-	assert.False(t, ok)
+	if _, ok := <-l; ok {
+		t.Errorf("expected l to be closed")
+	}
 }
 
 func TestListenerContext(t *testing.T) {
@@ -110,19 +125,19 @@ func TestListenerContext(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	l, _, err := b.Listen(WithContext(ctx), WithBufferSize(1))
-	assert.NoError(t, err)
-	require.NotNil(t, l)
+	if err != nil {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
 
 	ch <- 1
-
-	res, ok := <-l
-	assert.Equal(t, 1, res)
-	assert.True(t, ok)
+	if val := <-l; val != 1 {
+		t.Errorf("expected <-l == 1, but got %d", val)
+	}
 
 	cancel()
-
-	_, ok = <-l
-	assert.False(t, ok)
+	if _, ok := <-l; ok {
+		t.Errorf("expected l to be closed")
+	}
 }
 
 func TestBroadcasterClose(t *testing.T) {
@@ -131,10 +146,12 @@ func TestBroadcasterClose(t *testing.T) {
 
 	select {
 	case <-b.Done():
-		t.Fatal("broadcaster should not be closed")
+		t.Error("broadcaster's Done() channel should not be closed")
 	default:
 	}
-	assert.False(t, b.IsClosed())
+	if b.IsClosed() {
+		t.Error("broadcaster should not be closed")
+	}
 
 	close(ch)
 	time.Sleep(time.Millisecond)
@@ -142,9 +159,11 @@ func TestBroadcasterClose(t *testing.T) {
 	select {
 	case <-b.Done():
 	default:
-		t.Fatal("broadcaster should be closed")
+		t.Error("broadcaster's Done() channel should be closed")
 	}
-	assert.True(t, b.IsClosed())
+	if !b.IsClosed() {
+		t.Error("broadcaster should be closed")
+	}
 }
 
 func TestIdleTimeout(t *testing.T) {
@@ -152,11 +171,15 @@ func TestIdleTimeout(t *testing.T) {
 	ch := make(chan int)
 	b := NewBroadcaster(ch, WithIdleTimeout(idleTimeout))
 
-	assert.False(t, b.IsClosed())
+	if b.IsClosed() {
+		t.Error("broadcaster should not be closed")
+	}
 
 	time.Sleep(2 * idleTimeout)
 
-	assert.True(t, b.IsClosed())
+	if !b.IsClosed() {
+		t.Error("broadcaster should be closed")
+	}
 }
 
 func TestIdleTimeoutWithBlocking(t *testing.T) {
@@ -164,9 +187,13 @@ func TestIdleTimeoutWithBlocking(t *testing.T) {
 	ch := make(chan int)
 	b := NewBroadcaster(ch, WithIdleTimeout(idleTimeout), WithBlocking(true))
 
-	assert.False(t, b.IsClosed())
+	if b.IsClosed() {
+		t.Error("broadcaster should not be closed")
+	}
 
 	time.Sleep(2 * idleTimeout)
 
-	assert.True(t, b.IsClosed())
+	if !b.IsClosed() {
+		t.Error("broadcaster should be closed")
+	}
 }

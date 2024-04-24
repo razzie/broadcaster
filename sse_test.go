@@ -9,8 +9,6 @@ import (
 	"time"
 
 	. "github.com/razzie/broadcaster"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSSEBroadcast(t *testing.T) {
@@ -28,8 +26,12 @@ func TestSSEBroadcast(t *testing.T) {
 	close(ch)
 
 	expected := "data: 1\n\ndata: 2\n\ndata: 3\n\n"
-	assert.Equal(t, expected, <-resp1)
-	assert.Equal(t, expected, <-resp2)
+	if got := <-resp1; expected != got {
+		t.Errorf("expected <-resp1 == %q, got %q", expected, got)
+	}
+	if got := <-resp2; expected != got {
+		t.Errorf("expected <-resp2 == %q, got %q", expected, got)
+	}
 }
 
 func TestSSEBroadcastWithEventName(t *testing.T) {
@@ -47,8 +49,12 @@ func TestSSEBroadcastWithEventName(t *testing.T) {
 	close(ch)
 
 	expected := "event: a\ndata: 1\n\nevent: a\ndata: 2\n\nevent: a\ndata: 3\n\n"
-	assert.Equal(t, expected, <-resp1)
-	assert.Equal(t, expected, <-resp2)
+	if got := <-resp1; expected != got {
+		t.Errorf("expected <-resp1 == %q, got %q", expected, got)
+	}
+	if got := <-resp2; expected != got {
+		t.Errorf("expected <-resp2 == %q, got %q", expected, got)
+	}
 }
 
 func TestMultilineEvent(t *testing.T) {
@@ -63,7 +69,9 @@ func TestMultilineEvent(t *testing.T) {
 	close(ch)
 
 	expected := "data: ab\ndata: cd\n\n"
-	assert.Equal(t, expected, <-resp)
+	if got := <-resp; expected != got {
+		t.Errorf("expected <-resp == %q, got %q", expected, got)
+	}
 }
 
 func TestTextEventSource(t *testing.T) {
@@ -78,7 +86,9 @@ func TestTextEventSource(t *testing.T) {
 	close(ch)
 
 	expected := "data: a b c d\n\n"
-	assert.Equal(t, expected, <-resp)
+	if got := <-resp; expected != got {
+		t.Errorf("expected <-resp == %q, got %q", expected, got)
+	}
 }
 
 func TestTemplateEventSource(t *testing.T) {
@@ -94,7 +104,9 @@ func TestTemplateEventSource(t *testing.T) {
 	close(ch)
 
 	expected := "data: <span>Hello World</span>\n\n"
-	assert.Equal(t, expected, <-resp)
+	if got := <-resp; expected != got {
+		t.Errorf("expected <-resp == %q, got %q", expected, got)
+	}
 }
 
 func TestBundleEventSources(t *testing.T) {
@@ -114,7 +126,9 @@ func TestBundleEventSources(t *testing.T) {
 	close(ch2)
 
 	expected := "event: event1\ndata: 1\n\nevent: event2\ndata: 2\n\n"
-	assert.Equal(t, expected, <-resp)
+	if got := <-resp; expected != got {
+		t.Errorf("expected <-resp == %q, got %q", expected, got)
+	}
 }
 
 func runRequest(h http.Handler, path string) <-chan string {

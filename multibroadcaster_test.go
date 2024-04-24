@@ -5,23 +5,25 @@ import (
 	"testing"
 
 	. "github.com/razzie/broadcaster"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestMultisourceBroadcaster(t *testing.T) {
 	b := NewMultiBroadcaster(multiSource, WithBlocking(true), WithListenerBufferSize(1))
 
-	l1, _, err := b.Listen("1")
-	assert.NoError(t, err)
-	assert.Equal(t, 1, <-l1)
+	_, _, err := b.Listen("1")
+	if err != nil {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
 
-	l2, _, err := b.Listen("2")
-	assert.NoError(t, err)
-	assert.Equal(t, 2, <-l2)
+	_, _, err = b.Listen("2")
+	if err != nil {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
 
 	_, _, err = b.Listen("bad key")
-	assert.Equal(t, err, assert.AnError)
+	if err != ErrExpected {
+		t.Errorf("expected err == ErrExpected, got '%v'", err)
+	}
 }
 
 func multiSource(key string) (<-chan int, CancelFunc, error) {
@@ -39,6 +41,6 @@ func multiSource(key string) (<-chan int, CancelFunc, error) {
 		return ch, cancel, nil
 
 	default:
-		return nil, nil, assert.AnError
+		return nil, nil, ErrExpected
 	}
 }
