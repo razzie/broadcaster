@@ -2,12 +2,19 @@ package broadcaster
 
 import (
 	"context"
+	"io"
+	"net/http"
 	"time"
 )
 
 var (
 	defaultBroadcasterOptions = broadcasterOptions{
 		timeout: -1,
+	}
+
+	defaultSSEListenerOptions = sseListenerOptions{
+		client: http.DefaultClient,
+		method: "GET",
 	}
 )
 
@@ -67,5 +74,53 @@ func WithContext(ctx context.Context) ListenerOption {
 func WithTimeoutCallback(onTimeout func()) ListenerOption {
 	return func(lo *listenerOptions) {
 		lo.onTimeout = onTimeout
+	}
+}
+
+type sseListenerOptions struct {
+	client          *http.Client
+	method          string
+	body            io.Reader
+	bodyContentType string
+	header          http.Header
+	bufSize         int
+}
+
+type SSEListenerOption func(*sseListenerOptions)
+
+func WithClient(client *http.Client) SSEListenerOption {
+	return func(slo *sseListenerOptions) {
+		slo.client = client
+	}
+}
+
+func WithMethod(method string) SSEListenerOption {
+	return func(slo *sseListenerOptions) {
+		slo.method = method
+	}
+}
+
+func WithBody(body io.Reader, contentType string) SSEListenerOption {
+	return func(slo *sseListenerOptions) {
+		slo.body = body
+		slo.bodyContentType = contentType
+	}
+}
+
+func WithHeader(key, value0 string, values ...string) SSEListenerOption {
+	return func(slo *sseListenerOptions) {
+		if slo.header == nil {
+			slo.header = make(http.Header)
+		}
+		slo.header.Set(key, value0)
+		for _, value := range values {
+			slo.header.Add(key, value)
+		}
+	}
+}
+
+func WithEventsBufferSize(bufSize int) SSEListenerOption {
+	return func(slo *sseListenerOptions) {
+		slo.bufSize = bufSize
 	}
 }

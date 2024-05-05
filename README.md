@@ -27,7 +27,7 @@ As an extra feature, the library supports the creation of a http.Handler that br
 \* SSE broadcasters use the marshaler from an event source and support multiple sources when used with `BundleEventSources`
 
 ## API reference
-### Broadcaster interface + instantiation
+### Broadcaster interface, instantiation and options
 ```go
 type Broadcaster[T any] interface {
 	Listen(opts ...ListenerOption) (<-chan T, CancelFunc, error)
@@ -36,21 +36,15 @@ type Broadcaster[T any] interface {
 }
 
 func NewBroadcaster[T any](input <-chan T, opts ...BroadcasterOption) Broadcaster[T]
-```
 
-### Broadcaster options
-```go
-WithTimeout(timeout time.Duration)
-WithListenerBufferSize(bufSize int)
-WithBlocking(blocking bool)
-WithIdleTimeout(timeout time.Duration)
-```
+func WithTimeout(timeout time.Duration) BroadcasterOption
+func WithListenerBufferSize(bufSize int) BroadcasterOption
+func WithBlocking(blocking bool) BroadcasterOption
+func WithIdleTimeout(timeout time.Duration) BroadcasterOption
 
-### Listener options
-```go
-WithBufferSize(bufSize int)
-WithContext(ctx context.Context)
-WithTimeoutCallback(func())
+func WithBufferSize(bufSize int) ListenerOption
+func WithContext(ctx context.Context) ListenerOption
+func WithTimeoutCallback(func()) ListenerOption
 ```
 
 ### Server Sent Events
@@ -70,6 +64,16 @@ func NewSSEBroadcaster(src <-chan Event, opts ...BroadcasterOption) http.Handler
 ```
 * `Marshaler` type is compatible with `json.Marshal` (which is used by default in case `marshaler` is left `nil`).
 * `eventName` can be an empty string.
+
+```go
+func ListenSSE(ctx context.Context, url string, opts ...SSEListenerOption) (<-chan Event, error)
+
+func WithClient(client *http.Client) SSEListenerOption
+func WithMethod(method string) SSEListenerOption
+func WithBody(body io.Reader, contentType string) SSEListenerOption
+func WithHeader(key, value0 string, values ...string) SSEListenerOption
+func WithEventsBufferSize(bufSize int) SSEListenerOption
+```
 
 ### On-demand broadcasters
 ```go
