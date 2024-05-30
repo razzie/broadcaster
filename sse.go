@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"html/template"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
+	"unsafe"
 )
 
 type Event interface {
@@ -91,11 +93,10 @@ func NewSSEBroadcaster(src <-chan Event, opts ...BroadcasterOption) http.Handler
 }
 
 func serveSSE(listen func(*http.Request) (<-chan string, error), w http.ResponseWriter, r *http.Request) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "Server does not support Flusher!", http.StatusInternalServerError)
-		return
-	}
+	ww, _ := w.(interface {
+		http.Flusher
+		io.StringWriter
+	})
 
 	events, err := listen(r)
 	if err != nil {
@@ -108,9 +109,16 @@ func serveSSE(listen func(*http.Request) (<-chan string, error), w http.Response
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 
+	if ww != nil {
+		for e := range events {
+			ww.WriteString(e)
+			ww.Flush()
+		}
+		return
+	}
+
 	for e := range events {
 		w.Write([]byte(e))
-		flusher.Flush()
 	}
 }
 
@@ -124,7 +132,8 @@ func marshalEvent(e Event) (string, bool) {
 }
 
 func marshalText(text any) ([]byte, error) {
-	return []byte(text.(string)), nil
+	s := text.(string)
+	return unsafe.Slice(unsafe.StringData(s), len(s)), nil
 }
 
 func marshalTemplate(t *template.Template, name string) func(any) ([]byte, error) {
